@@ -1,46 +1,61 @@
-# Personal Life Manager
+# Majaagya
 
-A personal dashboard to manage every area of life in one place.
+Majaagya is a personal dashboard to manage every area of life in one place.
 Built for personal use first; may become a public product later.
+
+**Live app:** https://parmjeet1.github.io/Personal-life-manager/
+Open it on your phone in Chrome → menu ⋮ → **Install app**. It then works offline like a normal app.
 
 ## Status
 
-Planning phase. No code yet.
+v0.1 — all 9 modules, home dashboard, search, weekly review, backup/restore.
 
 ## Principles
 
-- Works offline.
-- Data stays on your device; export and import as JSON.
-- Built in free time, one module at a time.
+- Works offline (installable PWA, no server).
+- Data stays on your device (IndexedDB); export and import as JSON.
+- Built in free time, one improvement at a time.
 - Personal use first; go public only after 2–3 months of daily use.
 
 ## Modules
 
-| # | Module | What to track |
-| --- | --- | --- |
-| 1 | Projects | Stage (Just idea / R&D / Fresh, R&D required / Ongoing), phases, deadline, status, notes |
-| 2 | Bhakti | Points and notes, managing docs |
-| 3 | Finance and loans | Loan amount, taken from, deadline, repayment plan |
-| 4 | Things to learn | Topic, priority, resources, status |
-| 5 | Things to try | Idea, done or not done, notes |
-| 6 | Journal | Dated entries |
-| 7 | Affirmations | Current framed affirmations, shown on the home screen |
-| 8 | Relationships | Person, monthly call or chat plan, last contacted |
-| 9 | Links and connections | Saved links, Google Sheets and Docs, tools and accounts |
+| # | Module | What it tracks | Built-in rules |
+| --- | --- | --- | --- |
+| 1 | Projects | Stage, phases, deadline, next action, priority | Max 3 Ongoing, 7-day idea cooling, next action required, stale after 14 days |
+| 2 | Bhakti | Sadhana log, notes, verses, Ekadashi/festival calendar | Japa streak, 7-day rounds chart |
+| 3 | Finance | Loans taken and given, payments, EMI | Overdue auto, avalanche vs snowball, debt-free date |
+| 4 | Learn | Topics, resources, hours, proof | Max 2 Learning, Done needs proof |
+| 5 | Try | Ideas, effort, cost, rating | Pick-for-me, 1 per month |
+| 6 | Journal | Entries, mood, energy, gratitude | Daily prompt, on-this-day, 30-day trend, PIN lock |
+| 7 | Affirmations | Text, life area, linked goal | 3–5 active, read counter on home |
+| 8 | Relationships | People, circle, rhythm, birthdays, log | Due dates by circle, monthly planner, call/WhatsApp |
+| 9 | Links | Links, Sheets, Docs, tools, accounts | Never store passwords, 90-day cleanup, pinned on home |
 
 ## Data rules
 
-- Export and import as a JSON file; keep backups in Google Drive.
-- Show the date of the last backup on the home screen.
-- Every record has a unique ID plus created, updated and deleted dates.
-- Modules can be switched on and off.
-- Never commit personal data or exported backups to this repo.
+- Every record has a UUID plus `createdAt`, `updatedAt`, `deletedAt`.
+- Delete = archive (restore from Settings → Archive).
+- Backups carry `schemaVersion`; import merges, newer record wins.
+- Never commit personal data or exported backups to this repo (`.gitignore` blocks them).
 
-## Roadmap
+## Develop
 
-1. Finalise the module list and the fields for each.
-2. Decide between app and web.
-3. Build the first module (Projects or Finance).
-4. Add the remaining modules, one per free-time session.
-5. Build the home dashboard: affirmations, calls due, loan deadlines, active projects.
-6. Use it daily for 2–3 months, then decide whether to make it public.
+```bash
+npm install
+npm run dev      # http://localhost:5173/Personal-life-manager/
+npm run build    # output in dist/
+```
+
+Every push to `main` builds and publishes to the `gh-pages` branch via GitHub Actions.
+
+## Code map
+
+| Path | What it does |
+| --- | --- |
+| `src/db.js` | The only file that touches storage (Dexie/IndexedDB), export/import |
+| `src/modules/config.js` | All modules: fields, filters, card chips, actions, validation rules |
+| `src/modules/logic.js` | Pure business rules (loan maths, due dates, streaks) |
+| `src/components/` | Generic form, fields, record card, PIN gate |
+| `src/views/` | Home, module list, summaries, search, review, settings, archive |
+
+Adding a field = one line in `config.js`. Adding a module = one entry in `COLLECTION_DEFS` + `MODULES` + `COLLECTIONS` in `db.js`.
