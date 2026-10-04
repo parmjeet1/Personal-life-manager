@@ -3,7 +3,7 @@
 Majaagya is a personal dashboard to manage every area of life in one place.
 Built for personal use first; may become a public product later.
 
-**Live app:** https://parmjeet1.github.io/Personal-life-manager/
+**Live app:** https://parmjeet1.github.io/majaagya/
 Open it on your phone in Chrome → menu ⋮ → **Install app**. It then works offline like a normal app.
 
 ## Status
@@ -42,7 +42,7 @@ v0.2 — all 9 modules, money overview, Nishkama seva log, home dashboard, searc
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173/Personal-life-manager/
+npm run dev      # http://localhost:5173/
 npm run build    # output in dist/
 ```
 

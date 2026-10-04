@@ -2,8 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// GitHub Pages serves the app from /<repo-name>/
-const base = process.env.BASE_PATH || '/Personal-life-manager/';
+// Relative base: the same build works at any path (/majaagya/, /Personal-life-manager/, a custom domain).
+const base = './';
 
 export default defineConfig({
   base,
@@ -15,7 +15,7 @@ export default defineConfig({
       manifest: {
         name: 'Majaagya',
         short_name: 'Majaagya',
-        description: 'Personal life manager — projects, bhakti, finance, journal and more.',
+        description: 'Personal life manager — projects, finance, seva, journal and more.',
         theme_color: '#c2571a',
         background_color: '#fbf7f2',
         display: 'standalone',
