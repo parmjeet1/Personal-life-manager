@@ -6,6 +6,12 @@ import RecordForm from '../components/RecordForm';
 import { SUMMARIES } from './Summaries';
 import PinGate from '../components/PinGate';
 import { cls } from '../utils';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db';
+import TodoScreen, { TaskFormExtras } from './Todo';
+
+// Collections with their own screen instead of the generic list.
+const CUSTOM_LIST = { todos: TodoScreen };
 
 export default function ModuleView({ moduleKey, path, query }) {
   const mod = MODULES.find((m) => m.key === moduleKey);
@@ -28,12 +34,36 @@ function EditScreen({ mod, collection, id }) {
   return (
     <div className="screen">
       <h2 className="screen-title">{id === 'new' ? `New ${def.singular}` : `Edit ${def.singular}`}</h2>
+      {collection === 'todos' && id !== 'new' && <TodoExtras id={id} />}
       <RecordForm key={collection + id} collection={collection} id={id} onDone={back} />
     </div>
   );
 }
 
+function TodoExtras({ id }) {
+  const rec = useLiveQuery(() => db.todos.get(id), [id]);
+  return <TaskFormExtras record={rec} />;
+}
+
 function ListScreen({ mod, tab }) {
+  const Custom = CUSTOM_LIST[tab];
+  if (Custom) {
+    return (
+      <div className="screen">
+        <div className="module-head">
+          <span className="module-icon" style={{ background: mod.color }}>
+            {mod.icon}
+          </span>
+          <h1>{mod.label}</h1>
+        </div>
+        <Custom />
+      </div>
+    );
+  }
+  return <GenericList mod={mod} tab={tab} />;
+}
+
+function GenericList({ mod, tab }) {
   const def = COLLECTION_DEFS[tab];
   const records = useCollection(tab);
   const [filterBy, setFilterBy] = useState({});

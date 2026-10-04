@@ -2,9 +2,10 @@
 // Swap IndexedDB for an API later without touching the UI.
 import Dexie from 'dexie';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const COLLECTIONS = [
+  'todos',
   'projects',
   'seva',
   'bhaktiNotes',
@@ -37,6 +38,9 @@ db.version(2).stores({
 });
 db.version(3).stores({
   ...tables(['seva']),
+});
+db.version(4).stores({
+  ...tables(['todos']),
 });
 
 const now = () => new Date().toISOString();

@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { useAllData, useMeta, go } from '../hooks';
+import { useAllData, useMeta, useModuleOn, go } from '../hooks';
 import { updateRecord, exportAll, downloadJson } from '../db';
 import { MODULES, COLLECTION_DEFS, FEATURES, openLink } from '../modules/config';
+import { inToday, doneToday } from '../modules/todo';
+import { TaskRow } from './Todo';
 import {
   personNextDue,
   upcomingDates,
@@ -23,13 +25,12 @@ const edit = (mod, c, id) => go(`/m/${mod}/edit/${c}/${id}`);
 
 export default function Home() {
   const all = useAllData();
-  const enabled = useMeta('enabledModules', null);
+  const on = useModuleOn();
   const lastBackup = useMeta('lastBackupAt', null);
   const plan = useMeta('monthlyPlan', {});
   const [adding, setAdding] = useState(false);
 
   if (!all) return <div className="empty">Loading…</div>;
-  const on = (k) => !enabled || enabled.includes(k);
   const today = todayStr();
 
   const hour = new Date().getHours();
@@ -136,6 +137,10 @@ export default function Home() {
   const sadhanaToday = all.sadhana.find((s) => s.date === today);
   const streak = japaStreak(all.sadhana);
 
+  // ---- To-do ----
+  const todoToday = all.todos.filter((t) => inToday(t, today)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const todoPending = todoToday.filter((t) => !doneToday(t, today));
+
   // ---- Nishkama: one selfless act per week ----
   const sevaThisWeek = all.seva.some((r) => r.date && daysUntil(r.date) > -7 && daysUntil(r.date) <= 0);
 
@@ -207,6 +212,33 @@ export default function Home() {
           todayItems.map((i) => <AgendaRow key={i.key} item={i} />)
         )}
       </section>
+
+      {on('todo') && todoToday.length > 0 && (
+        <section className="card">
+          <h2 className="section-title row-between">
+            <span>
+              To-do <span className="muted small">{todoToday.length - todoPending.length}/{todoToday.length}</span>
+            </span>
+            <button className="link-btn small" onClick={() => go('/m/todo')}>
+              Open queue
+            </button>
+          </h2>
+          {todoPending.length === 0 ? (
+            <div className="muted small pad-s">All tasks done today.</div>
+          ) : (
+            <div className="list">
+              {todoPending.slice(0, 5).map((t) => (
+                <TaskRow key={t.id} t={t} onOpen={() => edit('todo', 'todos', t.id)} />
+              ))}
+              {todoPending.length > 5 && (
+                <button className="link-btn small" onClick={() => go('/m/todo')}>
+                  +{todoPending.length - 5} more
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {weekItems.length > 0 && (
         <section className="card">

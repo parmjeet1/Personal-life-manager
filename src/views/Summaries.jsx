@@ -24,6 +24,7 @@ import {
   repaymentPlan,
 } from '../modules/logic';
 import { promptOfTheDay } from '../modules/prompts';
+import { toText } from '../components/RichEditor';
 import { cls } from '../utils';
 
 const Stat = ({ label, value, tone }) => (
@@ -254,7 +255,7 @@ function Journal({ records, open }) {
           {looking.map((r) => (
             <button key={r.id} className="mini-item" onClick={() => open(r.id)}>
               <span>{fmtDate(r.date)}</span>
-              <span className="muted ellipsis">{(r.entry || '').slice(0, 60)}</span>
+              <span className="muted ellipsis">{toText(r.entry).slice(0, 60)}</span>
             </button>
           ))}
         </div>

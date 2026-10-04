@@ -1,10 +1,10 @@
-import { useAllData, useMeta, go } from '../hooks';
+import { useAllData, useModuleOn, go } from '../hooks';
 import { MODULES } from '../modules/config';
 
 export default function Modules() {
   const all = useAllData();
-  const enabled = useMeta('enabledModules', null);
-  const list = MODULES.filter((m) => !enabled || enabled.includes(m.key));
+  const on = useModuleOn();
+  const list = MODULES.filter((m) => on(m.key));
   return (
     <div className="screen">
       <h1>Modules</h1>

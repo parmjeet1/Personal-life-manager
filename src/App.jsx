@@ -9,6 +9,7 @@ import Search from './views/Search';
 import Settings from './views/Settings';
 import Review from './views/Review';
 import Archive from './views/Archive';
+import Alarms from './components/Alarms';
 
 const NAV = [
   { to: '/', label: 'Home', icon: '⌂', match: (p) => p.length === 0 },
@@ -73,6 +74,7 @@ export default function App() {
         </button>
       </header>
       <main className="main">{view}</main>
+      <Alarms />
       <nav className="bottomnav" aria-label="Main">
         {NAV.map((n) => (
           <button key={n.to} className={cls('nav-item', n.match(path) && 'on')} onClick={() => go(n.to)}>

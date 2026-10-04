@@ -1,6 +1,7 @@
 // Module definitions. Each module = one or more collections described by fields.
 // The generic UI (list, card, form) is driven entirely by this file.
 import { updateRecord } from '../db';
+import { toText } from '../components/RichEditor';
 import { todayStr, fmtShort, relDay, daysUntil, inr, daysSince, fmtDate } from '../utils';
 import {
   PROJECT_STAGES,
@@ -32,6 +33,48 @@ const dueChip = (date, label = 'Due') => {
 
 // ---------------------------------------------------------------------------
 export const COLLECTION_DEFS = {
+  // ---------------- 0. To-do ----------------
+  todos: {
+    label: 'To-do',
+    singular: 'task',
+    title: (r) => r.title,
+    fields: [
+      { key: 'title', label: 'Task', type: 'text', required: true },
+      { key: 'date', label: 'Date', type: 'date', default: () => todayStr(), help: 'Leave empty to keep it in today’s queue until done.', showIf: (r) => !r.repeat || r.repeat === 'None' },
+      { key: 'repeat', label: 'Repeat', type: 'select', options: ['None', 'Daily', 'Weekdays'], default: 'None', required: true },
+      { key: 'startTime', label: 'Start time', type: 'time' },
+      { key: 'endTime', label: 'End time', type: 'time' },
+      { key: 'urgent', label: 'Urgent', type: 'bool' },
+      { key: 'important', label: 'Important', type: 'bool' },
+      { key: 'alarm', label: 'Alarm (sound + notification)', type: 'bool', help: 'Rings while the app is open or recently used. For a guaranteed alarm, use “Add to phone calendar”.' },
+      { key: 'alarmBefore', label: 'Ring', type: 'select', options: ['At start time', '5 min before', '10 min before', '15 min before', '30 min before'], default: 'At start time', required: true, showIf: (r) => r.alarm },
+      { key: 'status', label: 'Status', type: 'select', options: ['To do', 'Doing', 'Done'], default: 'To do', required: true, showIf: (r) => !r.repeat || r.repeat === 'None' },
+      { key: 'project', label: 'Project', type: 'ref', targets: ['projects'] },
+      { key: 'notes', label: 'Notes', type: 'textarea', rows: 3 },
+    ],
+    beforeSave: (r, prev) => {
+      if (!prev && r.order == null) r.order = Date.now();
+      if (r.alarm && !r.startTime) r.alarm = false;
+      if (r.status === 'Done' && (!prev || prev.status !== 'Done')) r.completedAt = new Date().toISOString();
+      if (r.status !== 'Done') r.completedAt = null;
+      return r;
+    },
+    validate: (r) => {
+      const errors = [];
+      if (r.alarm && !r.startTime) errors.push('Set a start time to use the alarm.');
+      if (r.startTime && r.endTime && r.endTime <= r.startTime) errors.push('End time must be after start time.');
+      return { errors, warnings: [] };
+    },
+    sort: (a, b) => (a.order ?? 0) - (b.order ?? 0),
+    meta: (r) => [
+      r.startTime && { text: r.endTime ? `${r.startTime}–${r.endTime}` : r.startTime, tone: 'muted' },
+      r.urgent && { text: 'Urgent', tone: 'bad' },
+      r.important && { text: 'Important', tone: 'warn' },
+      r.repeat && r.repeat !== 'None' && { text: `↻ ${r.repeat}`, tone: 'muted' },
+      r.alarm && { text: '⏰', tone: 'muted' },
+    ],
+    subtitle: (r) => r.notes,
+  },
   // ---------------- 1. Projects ----------------
   projects: {
     label: 'Projects',
@@ -529,7 +572,7 @@ export const COLLECTION_DEFS = {
     title: (r) => `${fmtDate(r.date)}`,
     fields: [
       { key: 'date', label: 'Date', type: 'date', required: true, default: () => todayStr() },
-      { key: 'entry', label: 'Entry', type: 'textarea', rows: 8, promptHint: true },
+      { key: 'entry', label: 'Entry', type: 'richtext', promptHint: true, placeholder: 'Write freely…' },
       { key: 'mood', label: 'Mood', type: 'rating' },
       { key: 'energy', label: 'Energy', type: 'rating' },
       { key: 'gratitude', label: 'Gratitude (3 lines)', type: 'textarea', rows: 3 },
@@ -544,7 +587,7 @@ export const COLLECTION_DEFS = {
       r.energy && { text: `Energy ${r.energy}/5`, tone: 'muted' },
       ...(r.tags || []).slice(0, 3).map((t) => ({ text: '#' + t, tone: 'muted' })),
     ],
-    subtitle: (r) => r.entry,
+    subtitle: (r) => toText(r.entry),
   },
 
   // ---------------- 7. Affirmations ----------------
@@ -696,6 +739,7 @@ export const FEATURES = {
 
 // ---------------------------------------------------------------------------
 export const MODULES = [
+  { key: 'todo', label: 'To-do', icon: '☑', color: '#d0461f', tabs: ['todos'] },
   { key: 'projects', label: 'Projects', icon: '◆', color: '#c2571a', tabs: ['projects'] },
   {
     key: 'bhakti', // internal key — keeps existing data linked

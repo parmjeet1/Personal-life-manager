@@ -1,27 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
-import { useMeta, go } from '../hooks';
+import { useMeta, useDisabledModules, go } from '../hooks';
 import { setMeta, exportAll, downloadJson, importAll, requestPersistence } from '../db';
 import { MODULES, FEATURES } from '../modules/config';
 import { fmtDate, relDay, sha256 } from '../utils';
+import { ringOnce } from '../components/Alarms';
 
 export default function Settings() {
-  const enabled = useMeta('enabledModules', null);
+  const disabled = useDisabledModules();
   const lastBackup = useMeta('lastBackupAt', null);
   const japaTarget = useMeta('japaTarget', 16);
   const pinHash = useMeta('journalPinHash', null);
   const [persisted, setPersisted] = useState(null);
   const [msg, setMsg] = useState('');
+  const [notif, setNotif] = useState(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
   const fileRef = useRef();
 
   useEffect(() => {
     navigator.storage?.persisted?.().then(setPersisted);
   }, []);
 
-  const current = enabled || MODULES.map((m) => m.key);
+  const current = MODULES.map((m) => m.key).filter((k) => !disabled.includes(k));
   const toggleModule = (k) => {
-    const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
-    if (next.length === 0) return;
-    setMeta('enabledModules', MODULES.map((m) => m.key).filter((x) => next.includes(x)));
+    const next = disabled.includes(k) ? disabled.filter((x) => x !== k) : [...disabled, k];
+    if (next.length >= MODULES.length) return; // keep at least one module on
+    setMeta('disabledModules', next);
   };
 
   async function onImport(e) {
@@ -106,6 +108,29 @@ export default function Settings() {
             Protect my data
           </button>
         )}
+      </section>
+
+      <section className="card">
+        <h2 className="section-title">To-do alarms</h2>
+        <p className="small">
+          Notifications: <b>{notif === 'granted' ? 'allowed' : notif === 'denied' ? 'blocked (allow in Chrome site settings)' : notif === 'unsupported' ? 'not supported here' : 'not allowed yet'}</b>
+        </p>
+        <div className="row gap-s wrap">
+          {notif !== 'granted' && notif !== 'unsupported' && notif !== 'denied' && (
+            <button
+              className="btn small primary"
+              onClick={async () => setNotif(await Notification.requestPermission())}
+            >
+              Allow notifications
+            </button>
+          )}
+          <button className="btn small" onClick={() => ringOnce()}>
+            Test alarm sound
+          </button>
+        </div>
+        <p className="small muted">
+          Alarms ring while Majaagya is open or recently used. For an alarm that rings even when the app is closed, open the task and tap <b>Add to phone calendar</b>.
+        </p>
       </section>
 
       <section className="card">

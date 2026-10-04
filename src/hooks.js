@@ -40,3 +40,18 @@ export function useRoute() {
 export function go(to) {
   window.location.hash = to.startsWith('#') ? to : '#' + to;
 }
+
+// Module on/off. Stored as a list of DISABLED modules, so new modules show up by default.
+// Older versions stored 'enabledModules' — still honoured for the original nine.
+const LEGACY_MODULES = ['projects', 'bhakti', 'finance', 'learn', 'try', 'journal', 'affirmations', 'people', 'links'];
+export function useDisabledModules() {
+  const disabled = useMeta('disabledModules', undefined);
+  const legacyEnabled = useMeta('enabledModules', null);
+  if (Array.isArray(disabled)) return disabled;
+  if (Array.isArray(legacyEnabled)) return LEGACY_MODULES.filter((k) => !legacyEnabled.includes(k));
+  return [];
+}
+export function useModuleOn() {
+  const disabled = useDisabledModules();
+  return (k) => !disabled.includes(k);
+}

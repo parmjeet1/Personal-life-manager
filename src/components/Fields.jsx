@@ -1,6 +1,7 @@
 import { useAllData } from '../hooks';
 import { COLLECTION_DEFS, recordTitle } from '../modules/config';
 import { todayStr, cls } from '../utils';
+import RichEditor from './RichEditor';
 
 export function defaultFor(field) {
   if (typeof field.default === 'function') return field.default();
@@ -58,6 +59,21 @@ export function Field({ field, value, onChange }) {
           </button>
           {value && (
             <button type="button" className="btn ghost small" onClick={() => onChange('')} aria-label="Clear date">
+              ✕
+            </button>
+          )}
+        </div>
+      );
+      break;
+    case 'richtext':
+      input = <RichEditor id={id} value={value} onChange={onChange} placeholder={field.placeholder} />;
+      break;
+    case 'time':
+      input = (
+        <div className="row gap-s">
+          <input id={id} type="time" value={value || ''} onChange={(e) => onChange(e.target.value)} />
+          {value && (
+            <button type="button" className="btn ghost small" onClick={() => onChange('')} aria-label="Clear time">
               ✕
             </button>
           )}

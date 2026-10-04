@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useAllData, useMeta, go } from '../hooks';
+import { useAllData, useModuleOn, go } from '../hooks';
 import { COLLECTION_DEFS, moduleOf, recordTitle } from '../modules/config';
 import { Chips } from '../components/RecordCard';
 
 // Searches every text value of every record, across all enabled modules.
 export default function Search() {
   const all = useAllData();
-  const enabled = useMeta('enabledModules', null);
+  const on = useModuleOn();
   const [q, setQ] = useState('');
   const needle = q.trim().toLowerCase();
 
@@ -14,7 +14,7 @@ export default function Search() {
   if (all && needle.length >= 2) {
     for (const [c, records] of Object.entries(all)) {
       const mod = moduleOf(c);
-      if (!mod || (enabled && !enabled.includes(mod.key))) continue;
+      if (!mod || !on(mod.key)) continue;
       if (mod.locked) continue; // journal stays private; search inside the Journal module
       for (const r of records) {
         const text = Object.entries(r)
