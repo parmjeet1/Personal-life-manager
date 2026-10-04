@@ -1,8 +1,8 @@
 // Small summary panels shown above each module's list.
 import { useState } from 'react';
-import { useMeta } from '../hooks';
+import { useMeta, useAllData, go } from '../hooks';
 import { setMeta } from '../db';
-import { todayStr, addDays, daysUntil, fmtShort, fmtDate, inr, parseDate } from '../utils';
+import { todayStr, addDays, daysUntil, fmtShort, fmtDate, inr, inrShort, parseDate } from '../utils';
 import {
   projectIsStale,
   projectIdeaAgeDays,
@@ -16,6 +16,12 @@ import {
   snowballOrder,
   debtFreeProjection,
   personNextDue,
+  accountsTotal,
+  incomeMonthly,
+  budgetTotals,
+  runwayMonths,
+  goalProgress,
+  repaymentPlan,
 } from '../modules/logic';
 import { promptOfTheDay } from '../modules/prompts';
 import { cls } from '../utils';
@@ -73,7 +79,8 @@ function Sadhana({ records, open }) {
 }
 
 function Loans({ records, open }) {
-  const plan = useMeta('monthlyPlan', { income: '', fixed: '', repay: '' });
+  const plan = useMeta('monthlyPlan', {}) || {};
+  const all = useAllData();
   const [order, setOrder] = useState('avalanche');
   const openLoans = records.filter((l) => loanStatus(l) !== 'Closed');
   const taken = openLoans.filter(isTaken);
@@ -84,7 +91,8 @@ function Loans({ records, open }) {
     const d = loanNextDue(l);
     return d && daysUntil(d) <= 7;
   });
-  const available = plan.repay !== '' && plan.repay != null ? Number(plan.repay) : (Number(plan.income) || 0) - (Number(plan.fixed) || 0);
+  const rp = repaymentPlan(plan, all?.income, all?.budget);
+  const available = rp.available;
   const projection = debtFreeProjection(taken, available);
   const ordered = order === 'avalanche' ? avalancheOrder(taken) : snowballOrder(taken);
   const setPlan = (k, v) => setMeta('monthlyPlan', { ...plan, [k]: v });
@@ -92,8 +100,8 @@ function Loans({ records, open }) {
   return (
     <div className="panel">
       <div className="stats">
-        <Stat label="I owe" value={inr(owed)} tone={owed ? 'warn' : 'good'} />
-        <Stat label="Owed to me" value={inr(receivable)} />
+        <Stat label="I owe" value={inrShort(owed)} tone={owed ? 'warn' : 'good'} />
+        <Stat label="Owed to me" value={inrShort(receivable)} />
         <Stat label="Due in 7 days" value={dueSoon.length} tone={dueSoon.length ? 'bad' : ''} />
       </div>
 
@@ -115,24 +123,24 @@ function Loans({ records, open }) {
         <div className="grid-3">
           <label>
             <span className="field-label">Income / month (₹)</span>
-            <input type="number" inputMode="decimal" value={plan.income ?? ''} onChange={(e) => setPlan('income', e.target.value)} />
+            <input type="number" inputMode="decimal" placeholder={String(rp.autoIncome)} value={plan.income ?? ''} onChange={(e) => setPlan('income', e.target.value)} />
           </label>
           <label>
-            <span className="field-label">Fixed costs (₹)</span>
-            <input type="number" inputMode="decimal" value={plan.fixed ?? ''} onChange={(e) => setPlan('fixed', e.target.value)} />
+            <span className="field-label">Monthly costs (₹)</span>
+            <input type="number" inputMode="decimal" placeholder={String(rp.autoFixed)} value={plan.fixed ?? ''} onChange={(e) => setPlan('fixed', e.target.value)} />
           </label>
           <label>
             <span className="field-label">For repayment (₹)</span>
             <input
               type="number"
               inputMode="decimal"
-              placeholder={String(Math.max(0, (Number(plan.income) || 0) - (Number(plan.fixed) || 0)))}
+              placeholder={String(Math.max(0, rp.income - rp.fixed))}
               value={plan.repay ?? ''}
               onChange={(e) => setPlan('repay', e.target.value)}
             />
           </label>
         </div>
-        <p className="small muted">Leave "For repayment" empty to use income minus fixed costs.</p>
+        <p className="small muted">Empty boxes use your Income and Budget tabs (EMIs are not double-counted). Type a number to override.</p>
         <p>
           {owed === 0
             ? 'No open debt.'
@@ -327,7 +335,137 @@ function People({ records, open }) {
   );
 }
 
+// Money overview — first tab of Finance.
+function Accounts({ records }) {
+  const all = useAllData();
+  if (!all) return null;
+  const total = accountsTotal(records);
+  const income = incomeMonthly(all.income);
+  const bt = budgetTotals(all.budget, all.loans);
+  const surplus = income - bt.full;
+  const runway = runwayMonths(records, all.budget, all.loans);
+  const owed = all.loans.filter((l) => isTaken(l) && loanStatus(l) !== 'Closed').reduce((s, l) => s + loanRemaining(l), 0);
+  const stale = records.filter((a) => a.asOf && daysUntil(a.asOf) < -30).length;
+  return (
+    <div className="panel">
+      <div className="stats">
+        <Stat label="Money in accounts" value={inrShort(total)} tone="good" />
+        <Stat label="Owed (loans)" value={inrShort(owed)} tone={owed ? 'warn' : ''} />
+        <Stat label="Net position" value={inrShort(total - owed)} tone={total - owed < 0 ? 'bad' : 'good'} />
+      </div>
+      <div className="stats">
+        <Stat label="Income / month" value={inrShort(income)} />
+        <Stat label="Spend / month (incl. EMIs)" value={inrShort(bt.full)} />
+        <Stat label={surplus >= 0 ? 'Left each month' : 'Short each month'} value={inrShort(Math.abs(surplus))} tone={surplus >= 0 ? 'good' : 'bad'} />
+      </div>
+      <div className="runway">
+        {runway === null ? (
+          <span className="small muted">Add your survival budget in the Budget tab to see how many months your money lasts.</span>
+        ) : (
+          <>
+            <b className={runway < 3 ? 'text-bad' : runway < 6 ? 'text-warn' : ''}>{runway.toFixed(1)} months</b>
+            <span className="small muted"> you can survive on current balance with the survival budget ({inr(bt.survival)}/month). Aim for 6+.</span>
+          </>
+        )}
+      </div>
+      {stale > 0 && <div className="small text-warn">{stale} account balance(s) not updated in 30+ days.</div>}
+    </div>
+  );
+}
+
+function Goals({ records }) {
+  const active = records.filter((g) => g.status !== 'Achieved' && g.status !== 'Paused');
+  const perMonth = active.reduce((s, g) => s + (goalProgress(g).perMonth || 0), 0);
+  const saved = records.reduce((s, g) => s + goalProgress(g).saved, 0);
+  const achieved = records.filter((g) => g.status === 'Achieved').length;
+  return (
+    <div className="stats">
+      <Stat label="Saved across goals" value={inrShort(saved)} tone="good" />
+      <Stat label="Needed per month" value={inrShort(perMonth)} tone={perMonth ? 'warn' : ''} />
+      <Stat label="Achieved" value={achieved} />
+    </div>
+  );
+}
+
+function Budget({ records }) {
+  const all = useAllData();
+  if (!all) return null;
+  const bt = budgetTotals(records, all.loans);
+  const income = incomeMonthly(all.income);
+  const byCat = {};
+  for (const b of records) byCat[b.category || 'Other'] = (byCat[b.category || 'Other'] || 0) + (Number(b.amount) || 0);
+  if (bt.emi) byCat['Loan EMIs (auto)'] = bt.emi;
+  const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(1, ...cats.map((c) => c[1]));
+  const gap = income - bt.full;
+  return (
+    <div className="panel">
+      <div className="stats">
+        <Stat label="Survival / month" value={inrShort(bt.survival)} tone="warn" />
+        <Stat label="Full budget / month" value={inrShort(bt.full)} />
+        <Stat label={gap >= 0 ? 'Income left over' : 'Income short by'} value={inrShort(Math.abs(gap))} tone={gap >= 0 ? 'good' : 'bad'} />
+      </div>
+      {bt.emi > 0 && <div className="small muted">Includes {inr(bt.emi)} of loan EMIs from the Loans tab — don’t add EMIs here again.</div>}
+      {cats.length > 0 && (
+        <div className="hbars">
+          {cats.map(([c, v]) => (
+            <div key={c} className="hbar-row">
+              <span className="hbar-label">{c}</span>
+              <span className="hbar-track">
+                <span className="hbar" style={{ width: `${(v / max) * 100}%` }} />
+              </span>
+              <span className="hbar-val">{inr(v)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Income({ records }) {
+  const active = incomeMonthly(records);
+  const expected = records.filter((i) => i.status === 'Expected').reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  return (
+    <div className="stats">
+      <Stat label="Active income / month" value={inrShort(active)} tone="good" />
+      <Stat label="Expected (not yet)" value={inrShort(expected)} />
+      <Stat label="Sources" value={records.filter((i) => i.status !== 'Ended').length} />
+    </div>
+  );
+}
+
+function Seva({ records }) {
+  const month = todayStr().slice(0, 7);
+  const thisMonth = records.filter((r) => (r.date || '').slice(0, 7) === month);
+  const hours = thisMonth.reduce((s, r) => s + (Number(r.hours) || 0), 0);
+  const given = thisMonth.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  // Weeks (of the last 4) with at least one selfless act.
+  const weeks = [0, 1, 2, 3].filter((w) => {
+    const from = addDays(todayStr(), -7 * (w + 1) + 1);
+    const to = addDays(todayStr(), -7 * w);
+    return records.some((r) => r.date >= from && r.date <= to);
+  }).length;
+  return (
+    <div className="panel">
+      <div className="stats">
+        <Stat label="Acts this month" value={thisMonth.length} tone={thisMonth.length ? 'good' : 'warn'} />
+        <Stat label="Hours given" value={hours} />
+        <Stat label="Money given" value={inrShort(given)} />
+      </div>
+      <div className="small muted">
+        Goal: one selfless act every week — <b className={weeks >= 4 ? 'text-good' : ''}>{weeks}/4</b> weeks done lately. Act without expecting anything back.
+      </div>
+    </div>
+  );
+}
+
 export const SUMMARIES = {
+  seva: Seva,
+  accounts: Accounts,
+  goals: Goals,
+  budget: Budget,
+  income: Income,
   projects: Projects,
   sadhana: Sadhana,
   loans: Loans,

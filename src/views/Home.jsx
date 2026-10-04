@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAllData, useMeta, go } from '../hooks';
 import { updateRecord, exportAll, downloadJson } from '../db';
-import { MODULES, COLLECTION_DEFS, openLink } from '../modules/config';
+import { MODULES, COLLECTION_DEFS, FEATURES, openLink } from '../modules/config';
 import {
   personNextDue,
   upcomingDates,
@@ -12,8 +12,12 @@ import {
   isTaken,
   debtFreeProjection,
   japaStreak,
+  repaymentPlan,
+  accountsTotal,
+  runwayMonths,
+  goalProgress,
 } from '../modules/logic';
-import { todayStr, daysUntil, fmtShort, fmtDate, inr, relDay, daysSince, cls } from '../utils';
+import { todayStr, daysUntil, fmtShort, fmtDate, inr, inrShort, relDay, daysSince, cls } from '../utils';
 
 const edit = (mod, c, id) => go(`/m/${mod}/edit/${c}/${id}`);
 
@@ -132,6 +136,9 @@ export default function Home() {
   const sadhanaToday = all.sadhana.find((s) => s.date === today);
   const streak = japaStreak(all.sadhana);
 
+  // ---- Nishkama: one selfless act per week ----
+  const sevaThisWeek = all.seva.some((r) => r.date && daysUntil(r.date) > -7 && daysUntil(r.date) <= 0);
+
   // ---- Affirmations ----
   const affirmations = all.affirmations.filter((a) => a.active);
 
@@ -145,9 +152,14 @@ export default function Home() {
     .map((l) => ({ l, d: loanNextDue(l) }))
     .filter((x) => x.d)
     .sort((a, b) => a.d.localeCompare(b.d))[0];
-  const available =
-    plan && plan.repay !== '' && plan.repay != null ? Number(plan.repay) : (Number(plan?.income) || 0) - (Number(plan?.fixed) || 0);
+  const available = repaymentPlan(plan, all.income, all.budget).available;
   const projection = owed ? debtFreeProjection(taken, available) : null;
+
+  // ---- Money ----
+  const bankTotal = accountsTotal(all.accounts);
+  const runway = runwayMonths(all.accounts, all.budget, all.loans);
+  const activeGoals = all.goals.filter((g) => g.status !== 'Achieved' && g.status !== 'Paused').slice(0, 3);
+  const showMoney = on('finance') && (owed > 0 || all.accounts.length > 0 || activeGoals.length > 0);
 
   // ---- Links & backup ----
   const pinned = all.links.filter((l) => l.pinned);
@@ -175,15 +187,22 @@ export default function Home() {
 
       <section className="card">
         <h2 className="section-title">Today</h2>
-        {on('bhakti') && (
+        {FEATURES.sadhana && on('bhakti') && (
           <button className={cls('today-row', sadhanaToday ? 'done' : '')} onClick={() => go(sadhanaToday ? `/m/bhakti/edit/sadhana/${sadhanaToday.id}` : '/m/bhakti/edit/sadhana/new')}>
             <span className="check">{sadhanaToday ? '✓' : '○'}</span>
             <span className="grow">{sadhanaToday ? `Sadhana logged · ${sadhanaToday.rounds || 0} rounds` : 'Log today’s sadhana'}</span>
             {streak > 0 && <span className="chip good">{streak}-day streak</span>}
           </button>
         )}
+        {on('bhakti') && !sevaThisWeek && (
+          <button className="today-row" onClick={() => go('/m/bhakti/edit/seva/new')}>
+            <span className="check">♡</span>
+            <span className="grow">Do one selfless act this week</span>
+            <span className="chip muted">Nishkama</span>
+          </button>
+        )}
         {todayItems.length === 0 ? (
-          <div className="muted small pad-s">Nothing else due today.</div>
+          <div className="muted small pad-s">{on('bhakti') && !sevaThisWeek ? 'Nothing else due today.' : 'Nothing due today.'}</div>
         ) : (
           todayItems.map((i) => <AgendaRow key={i.key} item={i} />)
         )}
@@ -215,23 +234,39 @@ export default function Home() {
         </section>
       )}
 
-      {on('finance') && owed > 0 && (
-        <section className="card" onClick={() => go('/m/finance')} role="button" tabIndex={0}>
-          <h2 className="section-title">Debt</h2>
-          <div className="stats">
-            <div className="stat warn">
-              <div className="stat-value">{inr(owed)}</div>
-              <div className="stat-label">Total owed</div>
+      {showMoney && (
+        <section className="card">
+          <h2 className="section-title">Money</h2>
+          <button className="stats plain" onClick={() => go('/m/finance')}>
+            <div className="stat good">
+              <div className="stat-value">{inrShort(bankTotal)}</div>
+              <div className="stat-label">{runway !== null ? `In accounts · lasts ${runway.toFixed(1)} mo` : 'In accounts'}</div>
+            </div>
+            <div className={cls('stat', owed ? 'warn' : '')}>
+              <div className="stat-value">{inrShort(owed)}</div>
+              <div className="stat-label">{nextPay ? `Owed · next ${fmtShort(nextPay.d)}` : 'Owed'}</div>
             </div>
             <div className="stat">
-              <div className="stat-value">{nextPay ? fmtShort(nextPay.d) : '—'}</div>
-              <div className="stat-label">{nextPay ? `Next: ${nextPay.l.party}` : 'No due date'}</div>
+              <div className="stat-value">{owed ? (projection ? fmtShort(projection.date) : '—') : 'Free'}</div>
+              <div className="stat-label">{owed ? (projection ? `Debt-free (${projection.months} mo)` : 'Add income & budget') : 'No debt'}</div>
             </div>
-            <div className="stat good">
-              <div className="stat-value">{projection ? fmtShort(projection.date) : '—'}</div>
-              <div className="stat-label">{projection ? `Debt-free (${projection.months} mo)` : 'Set monthly plan'}</div>
-            </div>
-          </div>
+          </button>
+          {activeGoals.map((g) => {
+            const p = goalProgress(g);
+            return (
+              <button key={g.id} className="goal-row" onClick={() => edit('finance', 'goals', g.id)}>
+                <span className="row-between">
+                  <span>{g.name}</span>
+                  <span className="small muted">
+                    {p.pct}% · {inr(p.saved)} / {inr(p.target)}
+                  </span>
+                </span>
+                <span className="progress thin">
+                  <span style={{ width: `${p.pct}%` }} />
+                </span>
+              </button>
+            );
+          })}
         </section>
       )}
 

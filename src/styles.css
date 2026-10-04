@@ -1014,3 +1014,80 @@ button.card.record-main {
   font-size: 1.3rem;
   letter-spacing: 0.3em;
 }
+
+/* Keep the last home card's button clear of the floating + button */
+.home .backup {
+  padding-right: 84px;
+}
+
+/* ---------- Finance extras ---------- */
+.progress.thin {
+  height: 6px;
+  margin: 8px 0 0;
+}
+.runway {
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.hbars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hbar-row {
+  display: grid;
+  grid-template-columns: 34% 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+.hbar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hbar-track {
+  height: 10px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.hbar {
+  display: block;
+  height: 100%;
+  background: var(--good);
+  border-radius: 999px;
+}
+.hbar-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.stats.plain {
+  border: 0;
+  background: none;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 4px;
+}
+.goal-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 10px 0 4px;
+  text-align: left;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+.progress.thin > span {
+  display: block;
+  height: 100%;
+  background: var(--good);
+}
+.text-good {
+  color: var(--good);
+}

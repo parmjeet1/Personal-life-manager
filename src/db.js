@@ -2,15 +2,20 @@
 // Swap IndexedDB for an API later without touching the UI.
 import Dexie from 'dexie';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 3;
 
 export const COLLECTIONS = [
   'projects',
+  'seva',
   'bhaktiNotes',
   'sadhana',
   'verses',
   'bhaktiEvents',
   'loans',
+  'accounts',
+  'goals',
+  'budget',
+  'income',
   'learn',
   'tryItems',
   'journal',
@@ -19,10 +24,19 @@ export const COLLECTIONS = [
   'links',
 ];
 
+const tables = (list) => Object.fromEntries(list.map((c) => [c, '&id, updatedAt, deletedAt']));
+
 export const db = new Dexie('majaagya');
+// Versions only ever ADD tables. Existing data is never touched by an upgrade.
 db.version(1).stores({
-  ...Object.fromEntries(COLLECTIONS.map((c) => [c, '&id, updatedAt, deletedAt'])),
+  ...tables(['projects', 'bhaktiNotes', 'sadhana', 'verses', 'bhaktiEvents', 'loans', 'learn', 'tryItems', 'journal', 'affirmations', 'people', 'links']),
   meta: '&key',
+});
+db.version(2).stores({
+  ...tables(['accounts', 'goals', 'budget', 'income']),
+});
+db.version(3).stores({
+  ...tables(['seva']),
 });
 
 const now = () => new Date().toISOString();

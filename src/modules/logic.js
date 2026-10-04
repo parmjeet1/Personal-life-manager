@@ -6,7 +6,22 @@ import { todayStr, addDays, daysUntil, parseDate, nextAnniversary } from '../uti
 export const paidTotal = (loan) =>
   (loan.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-export const loanRemaining = (loan) => Math.max(0, (Number(loan.principal) || 0) - paidTotal(loan));
+// If the bank's outstanding figure is entered, trust it (it includes interest)
+// and subtract only payments recorded after that date. Otherwise principal − payments.
+export function loanRemaining(loan) {
+  const bank = loan.outstandingBank;
+  if (bank !== '' && bank != null && !isNaN(Number(bank))) {
+    const asOf = loan.outstandingAsOf || '';
+    const at = loan.outstandingAt || '';
+    // Exact time when known (payments recorded with the button), else by date.
+    const isAfter = (p) => (p.at && at ? p.at > at : (p.date || '') > asOf);
+    const after = (loan.payments || [])
+      .filter(isAfter)
+      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    return Math.max(0, Number(bank) - after);
+  }
+  return Math.max(0, (Number(loan.principal) || 0) - paidTotal(loan));
+}
 
 export const isTaken = (loan) => loan.direction !== 'Given (owed to me)';
 
@@ -122,4 +137,63 @@ export function projectIdeaAgeDays(p) {
 
 export function projectIsStale(p) {
   return p.stage === 'Ongoing' && p.updatedAt && -daysUntil(p.updatedAt.slice(0, 10)) > 14;
+}
+
+// ---------- Money: accounts, goals, budget, income ----------
+
+export const accountsTotal = (accounts) =>
+  accounts.filter((a) => a.inTotal !== false).reduce((s, a) => s + (Number(a.balance) || 0), 0);
+
+export const incomeMonthly = (income) =>
+  income.filter((i) => (i.status || 'Active') === 'Active').reduce((s, i) => s + (Number(i.amount) || 0), 0);
+
+// EMIs of active loans you owe — counted in the budget automatically.
+export const emiMonthly = (loans) =>
+  loans
+    .filter((l) => isTaken(l) && loanStatus(l) !== 'Closed' && l.repaymentType === 'EMI')
+    .reduce((s, l) => s + (Number(l.emi) || 0), 0);
+
+export function budgetTotals(budget, loans) {
+  const essential = budget.filter((b) => b.essential !== false).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const all = budget.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const emi = emiMonthly(loans);
+  return { essential, all, emi, survival: essential + emi, full: all + emi };
+}
+
+// Months you can live on current balance with the survival budget.
+export function runwayMonths(accounts, budget, loans) {
+  const { survival } = budgetTotals(budget, loans);
+  if (!survival) return null;
+  return accountsTotal(accounts) / survival;
+}
+
+export const goalSaved = (g) =>
+  (Number(g.startAmount) || 0) + (g.contributions || []).reduce((s, c) => s + (Number(c.amount) || 0), 0);
+
+export function goalProgress(g) {
+  const target = Number(g.targetAmount) || 0;
+  const saved = goalSaved(g);
+  const left = Math.max(0, target - saved);
+  const pct = target ? Math.min(100, Math.round((saved / target) * 100)) : 0;
+  let monthsLeft = null;
+  let perMonth = null;
+  if (g.targetDate && left > 0) {
+    const days = daysUntil(g.targetDate);
+    monthsLeft = Math.max(0, days / 30.44);
+    perMonth = monthsLeft > 0 ? Math.ceil(left / monthsLeft) : left;
+  }
+  return { target, saved, left, pct, monthsLeft, perMonth, done: target > 0 && saved >= target };
+}
+
+// Money available each month to repay loans.
+// Manual values in the monthly plan win; otherwise Income and Budget tabs are used.
+export function repaymentPlan(plan, income, budget) {
+  const p = plan || {};
+  const has = (v) => v !== '' && v != null;
+  const autoIncome = incomeMonthly(income || []);
+  const autoFixed = (budget || []).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const inc = has(p.income) ? Number(p.income) : autoIncome;
+  const fixed = has(p.fixed) ? Number(p.fixed) : autoFixed;
+  const available = has(p.repay) ? Number(p.repay) : inc - fixed;
+  return { income: inc, fixed, available, autoIncome, autoFixed };
 }

@@ -13,6 +13,7 @@ import {
   isTaken,
   personNextDue,
   personRhythm,
+  goalProgress,
 } from './logic';
 
 const PRIORITY = ['P1', 'P2', 'P3'];
@@ -100,6 +101,33 @@ export const COLLECTION_DEFS = {
   },
 
   // ---------------- 2. Bhakti ----------------
+  // ---------------- 2. Nishkama: selfless acts ----------------
+  seva: {
+    label: 'Seva log',
+    singular: 'selfless act',
+    title: (r) => r.deed,
+    fields: [
+      { key: 'deed', label: 'What I did', type: 'text', required: true, placeholder: 'e.g. Taught a kid maths, fed a stray dog' },
+      { key: 'date', label: 'Date', type: 'date', required: true, default: () => todayStr() },
+      { key: 'forWhom', label: 'For whom', type: 'text', placeholder: 'Person, group or cause' },
+      { key: 'kind', label: 'What I gave', type: 'select', options: ['Time', 'Money', 'Skill', 'Food', 'Help', 'Other'], default: 'Time' },
+      { key: 'hours', label: 'Hours given', type: 'number', min: 0, step: 0.5, showIf: (r) => ['Time', 'Skill', 'Help'].includes(r.kind) },
+      { key: 'amount', label: 'Amount given (₹)', type: 'money', showIf: (r) => ['Money', 'Food'].includes(r.kind) },
+      { key: 'nothingBack', label: 'Expected nothing in return', type: 'bool', default: true, help: 'Be honest — that is the whole point.' },
+      { key: 'reflection', label: 'How it felt / what I learned', type: 'textarea', rows: 3 },
+    ],
+    filters: { key: 'kind', options: ['Time', 'Money', 'Skill', 'Food', 'Help', 'Other'] },
+    sort: (a, b) => (b.date || '').localeCompare(a.date || ''),
+    meta: (r) => [
+      { text: fmtShort(r.date), tone: 'muted' },
+      r.kind && { text: r.kind, tone: 'muted' },
+      Number(r.hours) > 0 && { text: `${r.hours} h`, tone: 'muted' },
+      Number(r.amount) > 0 && { text: inr(r.amount), tone: 'muted' },
+      r.nothingBack !== false ? { text: 'Nishkama', tone: 'good' } : { text: 'Expected something back', tone: 'warn' },
+    ],
+    subtitle: (r) => [r.forWhom && `For ${r.forWhom}`, r.reflection].filter(Boolean).join(' — '),
+  },
+
   bhaktiNotes: {
     label: 'Notes',
     singular: 'note',
@@ -211,6 +239,13 @@ export const COLLECTION_DEFS = {
         ],
       },
       { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Closed'], default: 'Active', help: 'Overdue is set automatically.' },
+      {
+        key: 'outstandingBank',
+        label: 'Outstanding as per bank (₹)',
+        type: 'money',
+        help: 'Optional. From your bank statement/app — includes interest. When set, "left" uses this instead of principal minus payments.',
+      },
+      { key: 'outstandingAsOf', label: 'Outstanding updated on', type: 'date', default: () => '', showIf: (r) => r.outstandingBank !== '' && r.outstandingBank != null },
       { key: 'planNote', label: 'Repayment plan', type: 'textarea', placeholder: 'How you intend to repay' },
     ],
     filters: { key: '_status', options: ['Active', 'Overdue', 'Closed'], default: 'Open', get: (r) => loanStatus(r) },
@@ -220,7 +255,9 @@ export const COLLECTION_DEFS = {
       const st = loanStatus(r);
       return [
         { text: isTaken(r) ? 'I owe' : 'Owed to me', tone: isTaken(r) ? 'warn' : 'good' },
-        { text: `${inr(loanRemaining(r))} left of ${inr(r.principal)}`, tone: 'muted' },
+        r.outstandingBank !== '' && r.outstandingBank != null
+          ? { text: `${inr(loanRemaining(r))} left · bank figure ${r.outstandingAsOf ? fmtShort(r.outstandingAsOf) : ''}`.trim(), tone: 'muted' }
+          : { text: `${inr(loanRemaining(r))} left of ${inr(r.principal)}`, tone: 'muted' },
         Number(r.interestRate) > 0 && { text: `${r.interestRate}%`, tone: 'muted' },
         st === 'Overdue' && { text: 'Overdue', tone: 'bad' },
         st === 'Closed' && { text: 'Closed', tone: 'good' },
@@ -228,6 +265,14 @@ export const COLLECTION_DEFS = {
       ];
     },
     subtitle: (r) => r.planNote,
+    beforeSave: (r, prev) => {
+      const hasBank = r.outstandingBank !== '' && r.outstandingBank != null;
+      if (hasBank && !r.outstandingAsOf) r.outstandingAsOf = todayStr();
+      if (hasBank && (!prev || prev.outstandingBank !== r.outstandingBank || prev.outstandingAsOf !== r.outstandingAsOf)) {
+        r.outstandingAt = new Date().toISOString();
+      }
+      return r;
+    },
     actions: [
       {
         label: 'Record payment',
@@ -238,13 +283,155 @@ export const COLLECTION_DEFS = {
           if (v === null) return;
           const amount = Number(String(v).replace(/[^\d.]/g, ''));
           if (!amount) return;
-          const payments = [...(r.payments || []), { date: todayStr(), amount, note: '' }];
+          const payments = [...(r.payments || []), { date: todayStr(), amount, note: '', at: new Date().toISOString() }];
           const changes = { payments };
-          if ((Number(r.principal) || 0) - payments.reduce((s, p) => s + (Number(p.amount) || 0), 0) <= 0) changes.status = 'Closed';
+          if (loanRemaining({ ...r, payments }) <= 0) changes.status = 'Closed';
           await updateRecord('loans', r.id, changes);
         },
       },
     ],
+  },
+
+  // ---------------- 3b. Bank accounts ----------------
+  accounts: {
+    label: 'Accounts',
+    singular: 'account',
+    title: (r) => r.name,
+    fields: [
+      { key: 'name', label: 'Account name', type: 'text', required: true, placeholder: 'e.g. SBI savings, Cash in hand' },
+      { key: 'type', label: 'Type', type: 'select', options: ['Savings', 'Current', 'Cash', 'Wallet / UPI', 'FD / RD', 'Other'], default: 'Savings' },
+      { key: 'balance', label: 'Current balance (₹)', type: 'money', required: true },
+      { key: 'asOf', label: 'Balance as of', type: 'date', default: () => todayStr() },
+      { key: 'inTotal', label: 'Count in total money', type: 'bool', default: true, help: 'Turn off for money you must not touch (e.g. locked FD).' },
+      { key: 'notes', label: 'Notes', type: 'text' },
+    ],
+    sort: (a, b) => (Number(b.balance) || 0) - (Number(a.balance) || 0),
+    meta: (r) => [
+      { text: inr(r.balance), tone: 'good' },
+      r.type && { text: r.type, tone: 'muted' },
+      r.inTotal === false && { text: 'Not in total', tone: 'muted' },
+      r.asOf && { text: `Updated ${relDay(r.asOf)}`, tone: daysUntil(r.asOf) < -30 ? 'warn' : 'muted' },
+    ],
+    subtitle: (r) => r.notes,
+    actions: [
+      {
+        label: 'Update balance',
+        run: async (r) => {
+          const v = window.prompt(`Current balance in ${r.name} (₹)`, String(r.balance ?? ''));
+          if (v === null) return;
+          const balance = Number(String(v).replace(/[^\d.-]/g, ''));
+          if (isNaN(balance)) return;
+          await updateRecord('accounts', r.id, { balance, asOf: todayStr() });
+        },
+      },
+    ],
+  },
+
+  // ---------------- 3c. Savings goals ----------------
+  goals: {
+    label: 'Goals',
+    singular: 'savings goal',
+    title: (r) => r.name,
+    fields: [
+      { key: 'name', label: 'Goal', type: 'text', required: true, placeholder: 'e.g. Emergency fund, Laptop, Wedding' },
+      { key: 'targetAmount', label: 'Target amount (₹)', type: 'money', required: true },
+      { key: 'targetDate', label: 'Target date', type: 'date' },
+      { key: 'source', label: 'Money will come from', type: 'ref', targets: ['income', 'accounts'], help: 'Pick an income source or account.' },
+      { key: 'sourceNote', label: 'Source note', type: 'text', placeholder: 'e.g. 20% of every freelance payment' },
+      { key: 'priority', label: 'Priority', type: 'select', options: PRIORITY, default: 'P2' },
+      { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Paused', 'Achieved'], default: 'Active' },
+      { key: 'startAmount', label: 'Already saved (₹)', type: 'money', default: 0 },
+      {
+        key: 'contributions',
+        label: 'Money added',
+        type: 'sublist',
+        itemLabel: 'deposit',
+        fields: [
+          { key: 'date', label: 'Date', type: 'date', default: () => todayStr() },
+          { key: 'amount', label: 'Amount (₹)', type: 'money' },
+          { key: 'note', label: 'Note', type: 'text' },
+        ],
+      },
+    ],
+    filters: { key: 'status', options: ['Active', 'Paused', 'Achieved'], default: 'Active' },
+    sort: (a, b) => ORDER(PRIORITY)(a.priority) - ORDER(PRIORITY)(b.priority) || byDate('targetDate')(a, b),
+    meta: (r) => {
+      const g = goalProgress(r);
+      return [
+        { text: `${inr(g.saved)} of ${inr(g.target)} · ${g.pct}%`, tone: g.done ? 'good' : 'muted' },
+        g.perMonth && { text: `${inr(g.perMonth)}/month needed`, tone: 'warn' },
+        r.targetDate && !g.done && dueChip(r.targetDate, 'By'),
+        g.done && { text: 'Achieved', tone: 'good' },
+      ];
+    },
+    progress: (r) => goalProgress(r).pct,
+    subtitle: (r) => r.sourceNote,
+    beforeSave: (r) => {
+      if (goalProgress(r).done && r.status === 'Active') r.status = 'Achieved';
+      return r;
+    },
+    actions: [
+      {
+        label: 'Add money',
+        show: (r) => r.status !== 'Achieved',
+        run: async (r) => {
+          const v = window.prompt(`Amount added to "${r.name}" (₹)`, '');
+          if (v === null) return;
+          const amount = Number(String(v).replace(/[^\d.]/g, ''));
+          if (!amount) return;
+          const contributions = [...(r.contributions || []), { date: todayStr(), amount, note: '' }];
+          const changes = { contributions };
+          if (goalProgress({ ...r, contributions }).done) changes.status = 'Achieved';
+          await updateRecord('goals', r.id, changes);
+        },
+      },
+    ],
+  },
+
+  // ---------------- 3d. Monthly budget ----------------
+  budget: {
+    label: 'Budget',
+    singular: 'budget item',
+    title: (r) => r.item,
+    fields: [
+      { key: 'item', label: 'Item', type: 'text', required: true, placeholder: 'e.g. Rent, Groceries, Phone, Travel' },
+      { key: 'amount', label: 'Amount per month (₹)', type: 'money', required: true },
+      { key: 'category', label: 'Category', type: 'select', options: ['Home', 'Food', 'Travel', 'Bills', 'Family', 'Bhakti / Seva', 'Health', 'Personal', 'Other'] },
+      { key: 'essential', label: 'Needed to survive', type: 'bool', default: true, help: 'Off = nice-to-have. Survival budget counts only essentials.' },
+      { key: 'notes', label: 'Notes', type: 'text' },
+    ],
+    filters: { key: '_kind', options: ['Essential', 'Nice-to-have'], get: (r) => (r.essential === false ? 'Nice-to-have' : 'Essential') },
+    sort: (a, b) => Number(a.essential === false) - Number(b.essential === false) || (Number(b.amount) || 0) - (Number(a.amount) || 0),
+    meta: (r) => [
+      { text: `${inr(r.amount)}/month`, tone: 'muted' },
+      r.category && { text: r.category, tone: 'muted' },
+      { text: r.essential === false ? 'Nice-to-have' : 'Essential', tone: r.essential === false ? 'muted' : 'warn' },
+    ],
+    subtitle: (r) => r.notes,
+  },
+
+  // ---------------- 3e. Income ----------------
+  income: {
+    label: 'Income',
+    singular: 'income source',
+    title: (r) => r.source,
+    fields: [
+      { key: 'source', label: 'Source', type: 'text', required: true, placeholder: 'e.g. Freelance client, Salary, Tripa' },
+      { key: 'type', label: 'Type', type: 'select', options: ['Salary', 'Freelance', 'Business', 'Rent', 'Other'] },
+      { key: 'amount', label: 'Amount per month (₹)', type: 'money', required: true, help: 'For irregular income, use a realistic monthly average.' },
+      { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Expected', 'Ended'], default: 'Active', help: 'Only Active income counts in totals.' },
+      { key: 'payDay', label: 'Usually paid on day', type: 'number', min: 1, max: 31 },
+      { key: 'notes', label: 'Notes', type: 'text' },
+    ],
+    filters: { key: 'status', options: ['Active', 'Expected', 'Ended'] },
+    sort: (a, b) => ORDER(['Active', 'Expected', 'Ended'])(a.status) - ORDER(['Active', 'Expected', 'Ended'])(b.status) || (Number(b.amount) || 0) - (Number(a.amount) || 0),
+    meta: (r) => [
+      { text: `${inr(r.amount)}/month`, tone: r.status === 'Active' ? 'good' : 'muted' },
+      r.type && { text: r.type, tone: 'muted' },
+      r.status !== 'Active' && { text: r.status, tone: 'muted' },
+      r.payDay && { text: `Paid ~${r.payDay}th`, tone: 'muted' },
+    ],
+    subtitle: (r) => r.notes,
   },
 
   // ---------------- 4. Learn ----------------
@@ -502,11 +689,22 @@ export function openLink(r) {
   window.open(r.url, '_blank', 'noopener');
 }
 
+// Feature switches. Turn one back on by setting it to true — code and data are kept.
+export const FEATURES = {
+  sadhana: false, // daily sadhana log (Bhakti tab, home check-in, japa target)
+};
+
 // ---------------------------------------------------------------------------
 export const MODULES = [
   { key: 'projects', label: 'Projects', icon: '◆', color: '#c2571a', tabs: ['projects'] },
-  { key: 'bhakti', label: 'Bhakti', icon: '❀', color: '#b8860b', tabs: ['sadhana', 'bhaktiNotes', 'verses', 'bhaktiEvents'] },
-  { key: 'finance', label: 'Finance', icon: '₹', color: '#2e7d5b', tabs: ['loans'] },
+  {
+    key: 'bhakti', // internal key — keeps existing data linked
+    label: 'Nishkama',
+    icon: '❀',
+    color: '#b8860b',
+    tabs: ['seva', ...(FEATURES.sadhana ? ['sadhana'] : []), 'bhaktiNotes', 'verses', 'bhaktiEvents'],
+  },
+  { key: 'finance', label: 'Finance', icon: '₹', color: '#2e7d5b', tabs: ['accounts', 'loans', 'goals', 'budget', 'income'] },
   { key: 'learn', label: 'Learn', icon: '✎', color: '#3b6ea8', tabs: ['learn'] },
   { key: 'try', label: 'Try', icon: '✦', color: '#8a4fb0', tabs: ['tryItems'] },
   { key: 'journal', label: 'Journal', icon: '❝', color: '#5c6b73', tabs: ['journal'], locked: true },

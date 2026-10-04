@@ -6,7 +6,10 @@ import { fmtDate } from '../utils';
 export default function Archive() {
   const items = useLiveQuery(async () => {
     const out = [];
-    for (const c of COLLECTIONS) for (const r of await listArchived(c)) out.push({ c, r });
+    for (const c of COLLECTIONS) {
+      if (!moduleOf(c)) continue; // feature switched off
+      for (const r of await listArchived(c)) out.push({ c, r });
+    }
     return out.sort((a, b) => b.r.deletedAt.localeCompare(a.r.deletedAt));
   }, []);
 

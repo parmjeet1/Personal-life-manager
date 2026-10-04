@@ -24,6 +24,11 @@ export default function RecordCard({ collection, record, onOpen, compact }) {
       <button type="button" className="record-main" onClick={onOpen}>
         <div className="record-title">{recordTitle(collection, record)}</div>
         {subtitle && !compact && <div className="record-sub">{subtitle}</div>}
+        {def.progress && (
+          <div className="progress thin" aria-label={`${def.progress(record)}% done`}>
+            <div style={{ width: `${def.progress(record)}%` }} />
+          </div>
+        )}
         <Chips chips={def.meta ? def.meta(record) : []} />
       </button>
       {actions.length > 0 && (

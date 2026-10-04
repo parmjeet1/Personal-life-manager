@@ -86,3 +86,14 @@ export async function sha256(text) {
 export function cls(...parts) {
   return parts.filter(Boolean).join(' ');
 }
+
+// Compact Indian format for tight spaces: ₹90,000 · ₹4L · ₹3.85L · ₹1.2Cr
+export function inrShort(n) {
+  const v = Number(n) || 0;
+  const sign = v < 0 ? '-' : '';
+  const a = Math.abs(v);
+  const trim = (x) => String(Number(x.toFixed(2)));
+  if (a >= 1e7) return `${sign}₹${trim(a / 1e7)}Cr`;
+  if (a >= 1e5) return `${sign}₹${trim(a / 1e5)}L`;
+  return sign + '₹' + a.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}

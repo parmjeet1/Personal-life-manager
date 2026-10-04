@@ -8,7 +8,7 @@ Open it on your phone in Chrome → menu ⋮ → **Install app**. It then works 
 
 ## Status
 
-v0.1 — all 9 modules, home dashboard, search, weekly review, backup/restore.
+v0.2 — all 9 modules, money overview, Nishkama seva log, home dashboard, search, weekly review, backup/restore.
 
 ## Principles
 
@@ -22,8 +22,8 @@ v0.1 — all 9 modules, home dashboard, search, weekly review, backup/restore.
 | # | Module | What it tracks | Built-in rules |
 | --- | --- | --- | --- |
 | 1 | Projects | Stage, phases, deadline, next action, priority | Max 3 Ongoing, 7-day idea cooling, next action required, stale after 14 days |
-| 2 | Bhakti | Sadhana log, notes, verses, Ekadashi/festival calendar | Japa streak, 7-day rounds chart |
-| 3 | Finance | Loans taken and given, payments, EMI | Overdue auto, avalanche vs snowball, debt-free date |
+| 2 | Nishkama | Seva log (selfless acts), notes, verses, Ekadashi/festival calendar | One selfless act a week, nudge on home. Sadhana log switched off (`FEATURES.sadhana`) |
+| 3 | Finance | Accounts, loans, savings goals, monthly budget, income | Survival runway, bank outstanding on loans, ₹/month needed per goal, EMIs auto in budget, debt-free date |
 | 4 | Learn | Topics, resources, hours, proof | Max 2 Learning, Done needs proof |
 | 5 | Try | Ideas, effort, cost, rating | Pick-for-me, 1 per month |
 | 6 | Journal | Entries, mood, energy, gratitude | Daily prompt, on-this-day, 30-day trend, PIN lock |

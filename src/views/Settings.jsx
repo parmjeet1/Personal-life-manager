@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMeta, go } from '../hooks';
 import { setMeta, exportAll, downloadJson, importAll, requestPersistence } from '../db';
-import { MODULES } from '../modules/config';
+import { MODULES, FEATURES } from '../modules/config';
 import { fmtDate, relDay, sha256 } from '../utils';
 
 export default function Settings() {
@@ -127,13 +127,15 @@ export default function Settings() {
         ))}
       </section>
 
-      <section className="card">
-        <h2 className="section-title">Bhakti</h2>
-        <label className="field">
-          <span className="field-label">Daily japa target (rounds)</span>
-          <input type="number" inputMode="numeric" min="1" value={japaTarget ?? 16} onChange={(e) => setMeta('japaTarget', Number(e.target.value) || 16)} />
-        </label>
-      </section>
+      {FEATURES.sadhana && (
+        <section className="card">
+          <h2 className="section-title">Bhakti</h2>
+          <label className="field">
+            <span className="field-label">Daily japa target (rounds)</span>
+            <input type="number" inputMode="numeric" min="1" value={japaTarget ?? 16} onChange={(e) => setMeta('japaTarget', Number(e.target.value) || 16)} />
+          </label>
+        </section>
+      )}
 
       <section className="card">
         <h2 className="section-title">Journal PIN</h2>
