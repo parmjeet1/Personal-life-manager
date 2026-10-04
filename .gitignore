@@ -1,0 +1,14 @@
+# Personal data exports and backups — never commit
+backups/
+exports/
+*-backup*.json
+*-export*.json
+
+# Dependencies and builds
+node_modules/
+dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
