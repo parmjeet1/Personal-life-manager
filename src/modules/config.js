@@ -2,6 +2,7 @@
 // The generic UI (list, card, form) is driven entirely by this file.
 import { updateRecord } from '../db';
 import { toText } from '../components/RichEditor';
+import { googleCalendarUrl, openExternal } from './todo';
 import { todayStr, fmtShort, relDay, daysUntil, inr, daysSince, fmtDate } from '../utils';
 import {
   PROJECT_STAGES,
@@ -46,7 +47,7 @@ export const COLLECTION_DEFS = {
       { key: 'endTime', label: 'End time', type: 'time' },
       { key: 'urgent', label: 'Urgent', type: 'bool' },
       { key: 'important', label: 'Important', type: 'bool' },
-      { key: 'alarm', label: 'Alarm (sound + notification)', type: 'bool', help: 'Rings while the app is open or recently used. For a guaranteed alarm, use “Add to phone calendar”.' },
+      { key: 'alarm', label: 'Alarm', type: 'bool', help: 'In-app alarm rings only while Majaagya is open on screen. When you save, you can also add it to Google Calendar — that one rings even when the app is closed.' },
       { key: 'alarmBefore', label: 'Ring', type: 'select', options: ['At start time', '5 min before', '10 min before', '15 min before', '30 min before'], default: 'At start time', required: true, showIf: (r) => r.alarm },
       { key: 'status', label: 'Status', type: 'select', options: ['To do', 'Doing', 'Done'], default: 'To do', required: true, showIf: (r) => !r.repeat || r.repeat === 'None' },
       { key: 'project', label: 'Project', type: 'ref', targets: ['projects'] },
@@ -58,6 +59,21 @@ export const COLLECTION_DEFS = {
       if (r.status === 'Done' && (!prev || prev.status !== 'Done')) r.completedAt = new Date().toISOString();
       if (r.status !== 'Done') r.completedAt = null;
       return r;
+    },
+    afterSave: async (r, prev) => {
+      if (!r.alarm || !r.startTime) return null;
+      const changed =
+        !prev || !prev.alarm || prev.startTime !== r.startTime || prev.repeat !== r.repeat || prev.date !== r.date || prev.title !== r.title;
+      if (!changed) return null;
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        try {
+          await Notification.requestPermission();
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!window.confirm('Also add this to Google Calendar?\n\nGoogle Calendar rings even when Majaagya is closed. Tap Save there.')) return null;
+      return openExternal(googleCalendarUrl(r)) ? null : 'navigated';
     },
     validate: (r) => {
       const errors = [];

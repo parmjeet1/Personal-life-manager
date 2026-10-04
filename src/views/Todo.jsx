@@ -1,9 +1,9 @@
 // To-do screen: today's queue (drag to prioritise), upcoming, done, and the urgent/important matrix.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCollection, go } from '../hooks';
 import { addRecord, updateRecord, db } from '../db';
 import { todayStr, fmtShort, relDay, cls } from '../utils';
-import { inToday, doneToday, isOverdue, quadrant, timeRange, isNow, toggleDone, downloadIcs, isRepeating } from '../modules/todo';
+import { inToday, doneToday, isOverdue, quadrant, timeRange, isNow, toggleDone, downloadIcs, isRepeating, googleCalendarUrl, openExternal } from '../modules/todo';
 
 const VIEWS = ['Today', 'Upcoming', 'Done', 'Matrix'];
 
@@ -42,6 +42,7 @@ export default function TodoScreen() {
               <div style={{ width: `${todayList.length ? (doneCount / todayList.length) * 100 : 0}%` }} />
             </div>
             <QuickAdd count={byOrder.length} />
+            {todayList.some((t) => t.alarm && !doneToday(t, today)) && <AlarmMode />}
           </div>
           {pending.length === 0 ? (
             <div className="empty">{todayList.length ? 'All done for today. 🎉' : 'Nothing planned. Add your first task above.'}</div>
@@ -280,12 +281,60 @@ function Matrix({ todos, onOpen }) {
 // Extra buttons on the task edit form.
 export function TaskFormExtras({ record }) {
   if (!record || !record.id) return null;
+  const noTime = !record.startTime;
   return (
-    <div className="related">
-      <button type="button" className="btn small" onClick={() => downloadIcs(record)} disabled={!record.startTime}>
-        📅 Add to phone calendar (reliable alarm)
+    <div className="calendar-box">
+      <div className="field-label">Alarm that rings even when the app is closed</div>
+      <button type="button" className="btn primary small" disabled={noTime} onClick={() => openExternal(googleCalendarUrl(record))}>
+        📅 Add to Google Calendar
       </button>
-      {!record.startTime && <div className="field-help">Set a start time first.</div>}
+      <div className="field-help">
+        {noTime
+          ? 'Set a start time first.'
+          : 'Opens Google Calendar with this task filled in — tap Save. Tip: in Google Calendar settings set the default notification to “At time of event”.'}
+      </div>
+      {!noTime && (
+        <button type="button" className="link-btn small" onClick={() => downloadIcs(record)}>
+          Other calendar app (.ics file)
+        </button>
+      )}
     </div>
+  );
+}
+
+// Keeps the screen on so in-app alarms can ring (phone on desk / charging).
+export function AlarmMode() {
+  const [on, setOn] = useState(false);
+  const lock = useRef(null);
+  const supported = typeof navigator !== 'undefined' && 'wakeLock' in navigator;
+  useEffect(() => {
+    if (!on) return;
+    let cancelled = false;
+    const acquire = async () => {
+      try {
+        lock.current = await navigator.wakeLock.request('screen');
+      } catch {
+        if (!cancelled) setOn(false);
+      }
+    };
+    acquire();
+    const onVis = () => document.visibilityState === 'visible' && acquire();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVis);
+      lock.current?.release().catch(() => {});
+      lock.current = null;
+    };
+  }, [on]);
+  if (!supported) return null;
+  return (
+    <label className="toggle alarm-mode">
+      <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+      <span className="track" />
+      <span className="small">
+        <b>Alarm mode</b> — keep screen on so alarms ring
+      </span>
+    </label>
   );
 }

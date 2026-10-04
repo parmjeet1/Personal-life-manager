@@ -124,13 +124,26 @@ export default function Settings() {
               Allow notifications
             </button>
           )}
-          <button className="btn small" onClick={() => ringOnce()}>
-            Test alarm sound
+          <button
+            className="btn small"
+            onClick={() => {
+              ringOnce();
+              setMsg('Alarm in 10 seconds. Keep the app open to hear it; lock the phone to check the notification.');
+              setTimeout(() => window.dispatchEvent(new CustomEvent('majaagya:test-alarm')), 10000);
+            }}
+          >
+            Test alarm in 10 seconds
           </button>
         </div>
-        <p className="small muted">
-          Alarms ring while Majaagya is open or recently used. For an alarm that rings even when the app is closed, open the task and tap <b>Add to phone calendar</b>.
-        </p>
+        <ul className="small muted tight">
+          <li>
+            <b>In-app alarm</b> rings only while Majaagya is open on screen (turn on <b>Alarm mode</b> in To-do to keep the screen on).
+          </li>
+          <li>
+            <b>App closed?</b> Android freezes web apps, so use <b>Add to Google Calendar</b> on the task — Google Calendar rings even when Majaagya is closed.
+          </li>
+          <li>Alarms you miss while the app is closed show as “Missed” when you open it.</li>
+        </ul>
       </section>
 
       <section className="card">

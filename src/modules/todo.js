@@ -75,7 +75,8 @@ const icsLocal = (d) =>
   `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
 const esc = (s) => String(s || '').replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
 
-export function icsFor(t) {
+// Start/end Date objects for a task (today for repeating or undated tasks).
+export function eventTimes(t) {
   const day = t.date && !isRepeating(t) ? t.date : todayStr();
   const start = parseDate(day);
   const [sh, sm] = (t.startTime || '09:00').split(':').map(Number);
@@ -86,6 +87,45 @@ export function icsFor(t) {
     end.setHours(eh, em, 0, 0);
     if (end <= start) end.setTime(start.getTime() + 30 * 60000);
   } else end.setTime(start.getTime() + 30 * 60000);
+  return { start, end };
+}
+
+const RRULE = { Daily: 'RRULE:FREQ=DAILY', Weekdays: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' };
+
+// Google Calendar "new event" link — opens the Calendar app/site with the task filled in.
+// Google Calendar's own reminder rings even when Majaagya is closed.
+export function googleCalendarUrl(t) {
+  const { start, end } = eventTimes(t);
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: t.title || 'Task',
+    dates: `${icsLocal(start)}/${icsLocal(end)}`,
+    ctz: tz,
+    details: [t.notes, 'From Majaagya to-do'].filter(Boolean).join('\n\n'),
+  });
+  if (RRULE[t.repeat]) params.set('recur', RRULE[t.repeat]);
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+// Opens a link outside the app. Returns true if a new tab/window opened,
+// false if the page itself navigated (popup blocked).
+export function openExternal(url) {
+  const w = window.open(url, '_blank');
+  if (w) {
+    try {
+      w.opener = null;
+    } catch {
+      /* ignore */
+    }
+    return true;
+  }
+  window.location.assign(url);
+  return false;
+}
+
+export function icsFor(t) {
+  const { start, end } = eventTimes(t);
   const before = ALARM_BEFORE[t.alarmBefore] || 0;
   const lines = [
     'BEGIN:VCALENDAR',
@@ -98,8 +138,7 @@ export function icsFor(t) {
     `DTEND:${icsLocal(end)}`,
     `SUMMARY:${esc(t.title)}`,
     t.notes ? `DESCRIPTION:${esc(t.notes)}` : null,
-    t.repeat === 'Daily' ? 'RRULE:FREQ=DAILY' : null,
-    t.repeat === 'Weekdays' ? 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' : null,
+    RRULE[t.repeat] || null,
     'BEGIN:VALARM',
     'ACTION:DISPLAY',
     `DESCRIPTION:${esc(t.title)}`,

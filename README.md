@@ -21,7 +21,7 @@ v0.3 — To-do with drag-priority queue and alarms, doc-style journal, money ove
 
 | # | Module | What it tracks | Built-in rules |
 | --- | --- | --- | --- |
-| 0 | To-do | Tasks, start/end time, urgent/important, daily repeat, alarm | Drag ≡ to prioritise, Now highlight, Eisenhower matrix, in-app alarm + “Add to phone calendar” (.ics) for guaranteed reminders |
+| 0 | To-do | Tasks, start/end time, urgent/important, daily repeat, alarm | Drag ≡ to prioritise, Now highlight, Eisenhower matrix, in-app alarm, missed-alarm pop-up, Alarm mode (screen on), “Add to Google Calendar” for alarms when the app is closed |
 | 1 | Projects | Stage, phases, deadline, next action, priority | Max 3 Ongoing, 7-day idea cooling, next action required, stale after 14 days |
 | 2 | Nishkama | Seva log (selfless acts), notes, verses, Ekadashi/festival calendar | One selfless act a week, nudge on home. Sadhana log switched off (`FEATURES.sadhana`) |
 | 3 | Finance | Accounts, loans, savings goals, monthly budget, income | Survival runway, bank outstanding on loans, ₹/month needed per goal, EMIs auto in budget, debt-free date |

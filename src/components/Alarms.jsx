@@ -57,6 +57,8 @@ async function notify(task) {
     const opts = {
       body: timeRange(task) ? `${timeRange(task)}${task.notes ? ' · ' + task.notes : ''}` : task.notes || 'Time to start',
       tag: 'task-' + task.id,
+      renotify: true,
+      silent: false,
       requireInteraction: true,
       vibrate: [400, 200, 400, 200, 400],
       icon: 'icon-192.png',
@@ -93,7 +95,9 @@ export default function Alarms() {
   const snoozes = useRef({}); // id -> Date
   const loop = useRef(null);
 
-  // Check every 10 seconds.
+  // Check every 10 seconds, and immediately when the app comes back to the screen.
+  // Android freezes web apps in the background, so alarms that passed while the
+  // app was closed are shown as "missed" instead of being skipped silently.
   useEffect(() => {
     if (!todos) return;
     const check = () => {
@@ -106,25 +110,55 @@ export default function Alarms() {
         const at = snooze || alarmAt(t, today);
         if (!at) continue;
         const late = now - at;
-        if (late >= 0 && late < 5 * 60000) {
-          const k = firedKey(t, at);
-          if (wasFired(k)) continue;
+        if (late < 0) continue;
+        const k = firedKey(t, at);
+        if (wasFired(k)) continue;
+        if (late < 5 * 60000) {
           markFired(k);
           delete snoozes.current[t.id];
           setRinging(t);
           notify(t);
           return;
         }
+        // Missed: only if the alarm was set before it was due (not a task created later today).
+        markFired(k);
+        if (late < 12 * 3600000 && (!t.updatedAt || new Date(t.updatedAt) < at)) {
+          setRinging({ ...t, _missed: at });
+          return;
+        }
       }
     };
     check();
     const id = setInterval(check, 10000);
-    return () => clearInterval(id);
+    const onVis = () => document.visibilityState === 'visible' && check();
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onVis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onVis);
+    };
   }, [todos, ringing]);
+
+  // Settings → "Test alarm in 10 seconds".
+  useEffect(() => {
+    const onTest = () => {
+      const t = { id: 'test-' + Date.now(), title: 'Test alarm', notes: 'If you can see and hear this, alarms work.' };
+      setRinging(t);
+      notify(t);
+    };
+    window.addEventListener('majaagya:test-alarm', onTest);
+    return () => window.removeEventListener('majaagya:test-alarm', onTest);
+  }, []);
 
   // Ring and vibrate until handled (max 60 seconds).
   useEffect(() => {
     if (!ringing) return;
+    if (ringing._missed) {
+      ringOnce();
+      navigator.vibrate?.(200);
+      return;
+    }
     let n = 0;
     ringOnce();
     navigator.vibrate?.([400, 200, 400, 200, 400]);
@@ -147,7 +181,10 @@ export default function Alarms() {
   return (
     <div className="sheet-backdrop alarm-backdrop">
       <div className="sheet alarm" role="alertdialog" aria-label="Task alarm">
-        <div className="alarm-bell">⏰</div>
+        <div className="alarm-bell">{ringing._missed ? '🔕' : '⏰'}</div>
+        {ringing._missed && (
+          <div className="chip warn">Missed at {ringing._missed.toTimeString().slice(0, 5)} — app was closed</div>
+        )}
         <div className="alarm-title">{ringing.title}</div>
         {timeRange(ringing) && <div className="muted">{timeRange(ringing)}</div>}
         {ringing.notes && <div className="small muted mt-s">{ringing.notes}</div>}
@@ -155,21 +192,25 @@ export default function Alarms() {
           <button
             className="btn primary"
             onClick={() => {
-              if (!ringing.repeat || ringing.repeat === 'None') updateRecord('todos', ringing.id, { status: 'Doing' });
+              if (!String(ringing.id).startsWith('test-') && (!ringing.repeat || ringing.repeat === 'None')) {
+                updateRecord('todos', ringing.id, { status: 'Doing' });
+              }
               stop();
             }}
           >
             Start now
           </button>
-          <button
-            className="btn"
-            onClick={() => {
-              snoozes.current[ringing.id] = new Date(Date.now() + 5 * 60000);
-              stop();
-            }}
-          >
-            Snooze 5 min
-          </button>
+          {!ringing._missed && (
+            <button
+              className="btn"
+              onClick={() => {
+                snoozes.current[ringing.id] = new Date(Date.now() + 5 * 60000);
+                stop();
+              }}
+            >
+              Snooze 5 min
+            </button>
+          )}
           <button className="btn ghost" onClick={stop}>
             Dismiss
           </button>

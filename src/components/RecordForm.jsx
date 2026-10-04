@@ -50,10 +50,16 @@ export default function RecordForm({ collection, id, onDone, initial }) {
     let rec = { ...draft };
     if (def.beforeSave) rec = def.beforeSave(rec, isNew ? null : existing);
     const { id: _id, createdAt, updatedAt, deletedAt, ...data } = rec;
-    if (isNew) await addRecord(collection, data);
-    else await updateRecord(collection, id, data);
+    let saved;
+    if (isNew) saved = await addRecord(collection, data);
+    else {
+      await updateRecord(collection, id, data);
+      saved = { ...existing, ...data, id };
+    }
     setSaving(false);
-    onDone();
+    // afterSave may open another app; it returns 'navigated' if it left this page.
+    const res = def.afterSave ? await def.afterSave(saved, isNew ? null : existing) : null;
+    if (res !== 'navigated') onDone();
   }
 
   async function archive() {
