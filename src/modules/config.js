@@ -162,6 +162,7 @@ export const COLLECTION_DEFS = {
   // ---------------- 2. Bhakti ----------------
   // ---------------- 2. Nishkama: selfless acts ----------------
   seva: {
+    manualOrder: false, // dated log — keeps date order
     label: 'Seva log',
     singular: 'selfless act',
     title: (r) => r.deed,
@@ -205,6 +206,7 @@ export const COLLECTION_DEFS = {
   },
 
   sadhana: {
+    manualOrder: false, // dated log — keeps date order
     label: 'Sadhana',
     singular: 'day',
     title: (r) => fmtDate(r.date),
@@ -253,6 +255,7 @@ export const COLLECTION_DEFS = {
   },
 
   bhaktiEvents: {
+    manualOrder: false, // dated log — keeps date order
     label: 'Calendar',
     singular: 'date',
     title: (r) => r.name,
@@ -583,6 +586,7 @@ export const COLLECTION_DEFS = {
 
   // ---------------- 6. Journal ----------------
   journal: {
+    manualOrder: false, // dated log — keeps date order
     label: 'Journal',
     singular: 'entry',
     title: (r) => `${fmtDate(r.date)}`,

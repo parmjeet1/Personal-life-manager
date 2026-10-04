@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { COLLECTION_DEFS, MODULES } from '../modules/config';
-import { useCollection, go } from '../hooks';
+import { useCollection, useMeta, go } from '../hooks';
 import RecordCard from '../components/RecordCard';
 import RecordForm from '../components/RecordForm';
 import { SUMMARIES } from './Summaries';
 import PinGate from '../components/PinGate';
 import { cls } from '../utils';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { db, setMeta } from '../db';
+import DragList, { manualSort, saveOrder } from '../components/DragList';
 import TodoScreen, { TaskFormExtras } from './Todo';
 
 // Collections with their own screen instead of the generic list.
@@ -69,6 +70,9 @@ function GenericList({ mod, tab }) {
   const [filterBy, setFilterBy] = useState({});
   const [q, setQ] = useState('');
   const Summary = SUMMARIES[tab];
+  const canDrag = def.manualOrder !== false;
+  const sortMode = useMeta('sort:' + tab, 'manual');
+  const manual = canDrag && sortMode === 'manual';
 
   const filters = def.filters;
   const chipLabels = filters
@@ -85,7 +89,7 @@ function GenericList({ mod, tab }) {
     const needle = q.trim().toLowerCase();
     list = list.filter((r) => JSON.stringify(r).toLowerCase().includes(needle));
   }
-  if (def.sort) list = [...list].sort(def.sort);
+  list = [...list].sort(manual ? manualSort(def.sort) : def.sort || (() => 0));
 
   const open = (id) => go(`/m/${mod.key}/edit/${tab}/${id}`);
 
@@ -126,6 +130,19 @@ function GenericList({ mod, tab }) {
             ))}
           </div>
         )}
+        {canDrag && (records || []).length > 1 && (
+          <div className="row-between">
+            <span className="small muted">{manual ? 'Drag ≡ to set priority' : 'Sorted automatically'}</span>
+            <div className="segmented mini" role="radiogroup" aria-label="Sort order">
+              <button role="radio" aria-checked={manual} className={cls('seg', manual && 'on')} onClick={() => setMeta('sort:' + tab, 'manual')}>
+                ≡ My order
+              </button>
+              <button role="radio" aria-checked={!manual} className={cls('seg', !manual && 'on')} onClick={() => setMeta('sort:' + tab, 'auto')}>
+                Auto
+              </button>
+            </div>
+          </div>
+        )}
         {(records || []).length > 6 && (
           <input className="search-inline" type="search" placeholder={`Search ${def.label.toLowerCase()}`} value={q} onChange={(e) => setQ(e.target.value)} />
         )}
@@ -137,6 +154,14 @@ function GenericList({ mod, tab }) {
         <div className="empty">
           {records.length === 0 ? `No ${def.label.toLowerCase()} yet. Tap + to add the first ${def.singular}.` : 'Nothing matches this filter.'}
         </div>
+      ) : manual ? (
+        <DragList
+          items={list}
+          onReorder={(next) => saveOrder(tab, records, next, def.sort)}
+          renderItem={(r, i, drag) => (
+            <RecordCard key={r.id} collection={tab} record={r} onOpen={() => open(r.id)} {...drag} />
+          )}
+        />
       ) : (
         <div className="list">
           {list.map((r) => (

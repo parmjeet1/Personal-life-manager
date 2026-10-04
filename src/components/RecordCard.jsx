@@ -15,12 +15,12 @@ export function Chips({ chips }) {
   );
 }
 
-export default function RecordCard({ collection, record, onOpen, compact }) {
+export default function RecordCard({ collection, record, onOpen, compact, handle, style, dragging }) {
   const def = COLLECTION_DEFS[collection];
   const actions = (def.actions || []).filter((a) => !a.show || a.show(record));
   const subtitle = def.subtitle && def.subtitle(record);
-  return (
-    <div className="card record">
+  const body = (
+    <>
       <button type="button" className="record-main" onClick={onOpen}>
         <div className="record-title">{recordTitle(collection, record)}</div>
         {subtitle && !compact && <div className="record-sub">{subtitle}</div>}
@@ -48,6 +48,13 @@ export default function RecordCard({ collection, record, onOpen, compact }) {
           ))}
         </div>
       )}
+    </>
+  );
+  if (!handle) return <div className="card record">{body}</div>;
+  return (
+    <div className={cls('card record has-handle', dragging && 'dragging')} style={style}>
+      <div className="record-body">{body}</div>
+      {handle}
     </div>
   );
 }

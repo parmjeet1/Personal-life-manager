@@ -1,7 +1,8 @@
 // To-do screen: today's queue (drag to prioritise), upcoming, done, and the urgent/important matrix.
 import { useEffect, useRef, useState } from 'react';
 import { useCollection, go } from '../hooks';
-import { addRecord, updateRecord, db } from '../db';
+import { addRecord } from '../db';
+import DragList, { saveOrder } from '../components/DragList';
 import { todayStr, fmtShort, relDay, cls } from '../utils';
 import { inToday, doneToday, isOverdue, quadrant, timeRange, isNow, toggleDone, downloadIcs, isRepeating, googleCalendarUrl, openExternal } from '../modules/todo';
 
@@ -47,7 +48,12 @@ export default function TodoScreen() {
           {pending.length === 0 ? (
             <div className="empty">{todayList.length ? 'All done for today. 🎉' : 'Nothing planned. Add your first task above.'}</div>
           ) : (
-            <DragList items={pending} onOpen={open} />
+            <DragList
+              className="task-list"
+              items={pending}
+              onReorder={(next) => saveOrder('todos', todos, next)}
+              renderItem={(t, i, drag) => <TaskRow key={t.id} t={t} onOpen={() => open(t.id)} {...drag} />}
+            />
           )}
           {doneCount > 0 && (
             <details className="details mt-s">
@@ -126,83 +132,6 @@ export function TaskRow({ t, onOpen, handle, style, dragging }) {
         </span>
       </button>
       {handle}
-    </div>
-  );
-}
-
-// Pointer-based drag (works with touch and mouse). Drag the ≡ handle; order is saved on drop.
-function DragList({ items, onOpen }) {
-  const [drag, setDrag] = useState(null);
-  const rects = useRef([]);
-  const listRef = useRef(null);
-
-  function start(e, index) {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    rects.current = [...listRef.current.querySelectorAll('.task')].map((el) => el.getBoundingClientRect());
-    setDrag({ index, over: index, startY: e.clientY, dy: 0 });
-    if (navigator.vibrate) navigator.vibrate(15);
-  }
-  function move(e) {
-    if (!drag) return;
-    const dy = e.clientY - drag.startY;
-    const r = rects.current[drag.index];
-    const center = r.top + r.height / 2 + dy;
-    let over = 0;
-    rects.current.forEach((rc, i) => {
-      if (i !== drag.index && rc.top + rc.height / 2 < center) over++;
-    });
-    setDrag({ ...drag, dy, over });
-  }
-  async function end() {
-    if (!drag) return;
-    const { index, over } = drag;
-    setDrag(null);
-    if (index === over) return;
-    const next = [...items];
-    const [moved] = next.splice(index, 1);
-    next.splice(over, 0, moved);
-    // Keep the new queue order before tasks not shown here.
-    await db.transaction('rw', db.todos, async () => {
-      for (let i = 0; i < next.length; i++) await updateRecord('todos', next[i].id, { order: i });
-    });
-  }
-
-  const shiftFor = (i) => {
-    if (!drag || i === drag.index) return 0;
-    const h = rects.current[drag.index] ? rects.current[drag.index].height + 8 : 0;
-    if (drag.index < drag.over && i > drag.index && i <= drag.over) return -h;
-    if (drag.index > drag.over && i < drag.index && i >= drag.over) return h;
-    return 0;
-  };
-
-  return (
-    <div className="list task-list" ref={listRef}>
-      {items.map((t, i) => (
-        <TaskRow
-          key={t.id}
-          t={t}
-          onOpen={() => onOpen(t.id)}
-          dragging={drag && drag.index === i}
-          style={{
-            transform: `translateY(${drag && drag.index === i ? drag.dy : shiftFor(i)}px)`,
-            transition: drag && drag.index === i ? 'none' : 'transform 0.15s',
-          }}
-          handle={
-            <span
-              className="task-handle"
-              aria-label={`Drag to reorder. Position ${i + 1}`}
-              role="button"
-              onPointerDown={(e) => start(e, i)}
-              onPointerMove={move}
-              onPointerUp={end}
-              onPointerCancel={end}
-            >
-              <span className="task-rank">{i + 1}</span>≡
-            </span>
-          }
-        />
-      ))}
     </div>
   );
 }

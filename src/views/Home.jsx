@@ -4,6 +4,7 @@ import { updateRecord, exportAll, downloadJson } from '../db';
 import { MODULES, COLLECTION_DEFS, FEATURES, openLink } from '../modules/config';
 import { inToday, doneToday } from '../modules/todo';
 import { TaskRow } from './Todo';
+import { manualSort } from '../components/DragList';
 import {
   personNextDue,
   upcomingDates,
@@ -148,7 +149,7 @@ export default function Home() {
   const affirmations = all.affirmations.filter((a) => a.active);
 
   // ---- Projects ----
-  const ongoing = all.projects.filter((p) => p.stage === 'Ongoing');
+  const ongoing = all.projects.filter((p) => p.stage === 'Ongoing').sort(manualSort(COLLECTION_DEFS.projects.sort));
 
   // ---- Debt ----
   const taken = all.loans.filter((l) => isTaken(l) && loanStatus(l) !== 'Closed');
