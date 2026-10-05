@@ -66,7 +66,7 @@ export function Field({ field, value, onChange }) {
       );
       break;
     case 'richtext':
-      input = <RichEditor id={id} value={value} onChange={onChange} placeholder={field.placeholder} />;
+      input = <RichEditor id={id} value={value} onChange={onChange} placeholder={field.placeholder} variant={field.variant} />;
       break;
     case 'time':
       input = (

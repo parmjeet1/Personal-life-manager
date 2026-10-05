@@ -614,23 +614,36 @@ export const COLLECTION_DEFS = {
   affirmations: {
     label: 'Affirmations',
     singular: 'affirmation',
-    title: (r) => r.text,
+    title: (r) => toText(r.text),
     fields: [
-      { key: 'text', label: 'Affirmation', type: 'textarea', rows: 3, required: true, placeholder: 'Present tense, first person — "I am…", "I have…"' },
+      {
+        key: 'text',
+        label: 'Affirmation',
+        type: 'richtext',
+        variant: 'compact',
+        required: true,
+        placeholder: 'Present tense, first person — "I am…", "I have…"',
+      },
       { key: 'area', label: 'Life area', type: 'select', options: ['Wealth', 'Career', 'Health', 'Bhakti', 'Relationships', 'Other'] },
       { key: 'linkedTo', label: 'Supports goal', type: 'ref', targets: ['projects', 'loans', 'learn'] },
       { key: 'active', label: 'Active', type: 'bool', default: true },
+      { key: 'target', label: 'Read times per day', type: 'number', min: 1, max: 108, default: 3, help: 'Today’s count resets every morning.' },
       { key: 'startDate', label: 'Start date', type: 'date', default: () => todayStr() },
-      { key: 'timesRead', label: 'Times read', type: 'number', min: 0, default: 0 },
+      { key: 'timesRead', label: 'Total times read (all days)', type: 'number', min: 0, default: 0 },
     ],
     filters: { key: '_active', options: ['Active', 'Retired'], default: 'Active', get: (r) => (r.active ? 'Active' : 'Retired') },
     sort: (a, b) => Number(!!b.active) - Number(!!a.active),
-    meta: (r) => [
-      r.area && { text: r.area, tone: 'muted' },
-      { text: `Read ${r.timesRead || 0}×`, tone: 'muted' },
-      !r.active && { text: 'Retired', tone: 'muted' },
-    ],
-    actions: [{ label: 'Read ✓', show: (r) => r.active, run: (r) => updateRecord('affirmations', r.id, { timesRead: (Number(r.timesRead) || 0) + 1 }) }],
+    meta: (r) => {
+      const n = readToday(r);
+      const target = Number(r.target) || 0;
+      return [
+        r.active && { text: target ? `Today ${n}/${target}` : `Today ${n}×`, tone: target && n >= target ? 'good' : n ? 'muted' : 'warn' },
+        { text: `Total ${r.timesRead || 0}×`, tone: 'muted' },
+        r.area && { text: r.area, tone: 'muted' },
+        !r.active && { text: 'Retired', tone: 'muted' },
+      ];
+    },
+    actions: [{ label: 'Read ✓', show: (r) => r.active, run: (r) => markAffirmationRead(r) }],
     validate: (r, prev, all) => {
       const warnings = [];
       if (r.active && (!prev || !prev.active)) {
@@ -746,6 +759,16 @@ export const COLLECTION_DEFS = {
     },
   },
 };
+
+// Affirmations: today's count resets each day (nothing to clean up — a new date means 0).
+export const readToday = (a) => (a.readDate === todayStr() ? Number(a.readToday) || 0 : 0);
+export function markAffirmationRead(a) {
+  return updateRecord('affirmations', a.id, {
+    readDate: todayStr(),
+    readToday: readToday(a) + 1,
+    timesRead: (Number(a.timesRead) || 0) + 1,
+  });
+}
 
 export function openLink(r) {
   updateRecord('links', r.id, { lastOpened: new Date().toISOString() });

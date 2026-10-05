@@ -798,42 +798,6 @@ button.card.record-main {
 .home-head h1 {
   margin-bottom: 12px;
 }
-.affirm-card {
-  background: linear-gradient(135deg, #e8833a, #b2451a);
-  color: #fff8ef;
-  border-radius: var(--radius);
-  padding: 14px;
-  margin-bottom: 12px;
-}
-.affirm {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: none;
-  color: inherit;
-  padding: 8px 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-}
-.affirm:last-of-type {
-  border-bottom: 0;
-}
-.affirm-count {
-  font-size: 0.75rem;
-  opacity: 0.8;
-  font-weight: 500;
-  flex: none;
-}
-.affirm-hint {
-  font-size: 0.75rem;
-  opacity: 0.8;
-  margin-top: 6px;
-}
 .agenda,
 .today-row {
   display: flex;
@@ -1407,4 +1371,131 @@ button.card.record-main {
   min-height: 32px;
   padding: 4px 10px;
   font-size: 0.8rem;
+}
+
+/* ---------- Affirmations (home) ---------- */
+.affirm-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.affirm-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.affirm {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  color: var(--text);
+  padding: 10px 0;
+  font-size: 1.08rem;
+  font-weight: 500;
+  line-height: 1.45;
+  border-bottom: 1px solid var(--line);
+}
+.affirm:last-of-type {
+  border-bottom: 0;
+}
+.affirm-text {
+  flex: 1;
+  min-width: 0;
+}
+.affirm-text h2 {
+  font-size: 1.3rem;
+  margin: 0;
+}
+.affirm-text p,
+.affirm-text div {
+  margin: 0;
+}
+.affirm-count {
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.affirm.done .affirm-count {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.affirm-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* ---------- Rich text colours ---------- */
+.rich span[style*='background'] {
+  color: #2a211b;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.doc-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-weight: 800;
+  font-size: 1rem;
+}
+.swatch.text {
+  background: var(--surface-2);
+}
+.swatch.none {
+  color: var(--muted);
+}
+.doc-tool.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.doc-tool.color-tool {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 3px;
+  font-weight: 800;
+}
+.doc.compact .doc-page {
+  min-height: 110px;
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 500; /* below bold, so the Bold button adds weight instead of removing it */
+  line-height: 1.5;
+}
+.doc.compact .doc-page h2 {
+  font-size: 1.4rem;
+  margin: 0.2em 0;
+}
+
+.rich b,
+.rich strong {
+  font-weight: 800;
 }

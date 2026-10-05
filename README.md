@@ -28,7 +28,7 @@ v0.3 — To-do with drag-priority queue and alarms, doc-style journal, money ove
 | 4 | Learn | Topics, resources, hours, proof | Max 2 Learning, Done needs proof |
 | 5 | Try | Ideas, effort, cost, rating | Pick-for-me, 1 per month |
 | 6 | Journal | Doc-style entries (headings, bold, lists, focus mode), mood, energy, gratitude | Daily prompt, on-this-day, 30-day trend, PIN lock |
-| 7 | Affirmations | Text, life area, linked goal | 3–5 active, read counter on home |
+| 7 | Affirmations | Doc-style text (bold, italic, colours, highlight, big), life area, linked goal, reads per day | 3–5 active, today’s count resets every morning, total kept |
 | 8 | Relationships | People, circle, rhythm, birthdays, log | Due dates by circle, monthly planner, call/WhatsApp |
 | 9 | Links | Links, Sheets, Docs, tools, accounts | Never store passwords, 90-day cleanup, pinned on home |
 

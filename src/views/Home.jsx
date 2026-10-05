@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAllData, useMeta, useModuleOn, go } from '../hooks';
 import { updateRecord, exportAll, downloadJson } from '../db';
-import { MODULES, COLLECTION_DEFS, FEATURES, openLink } from '../modules/config';
+import { MODULES, COLLECTION_DEFS, FEATURES, openLink, readToday, markAffirmationRead } from '../modules/config';
+import { toHtml } from '../components/RichEditor';
 import { inToday, doneToday } from '../modules/todo';
 import { TaskRow } from './Todo';
 import { manualSort } from '../components/DragList';
@@ -181,13 +182,27 @@ export default function Home() {
 
       {on('affirmations') && affirmations.length > 0 && (
         <section className="affirm-card">
-          {affirmations.map((a) => (
-            <button key={a.id} className="affirm" onClick={() => updateRecord('affirmations', a.id, { timesRead: (Number(a.timesRead) || 0) + 1 })}>
-              <span>{a.text}</span>
-              <span className="affirm-count">{a.timesRead || 0}×</span>
-            </button>
-          ))}
-          <div className="affirm-hint">Tap an affirmation after reading it aloud.</div>
+          <div className="affirm-head">
+            <span>Affirmations</span>
+            <span>
+              {affirmations.filter((a) => readToday(a) >= (Number(a.target) || 1)).length}/{affirmations.length} done today
+            </span>
+          </div>
+          {affirmations.map((a) => {
+            const n = readToday(a);
+            const target = Number(a.target) || 0;
+            const done = target ? n >= target : n > 0;
+            return (
+              <button key={a.id} className={cls('affirm', done && 'done')} onClick={() => markAffirmationRead(a)}>
+                <span className="affirm-text rich" dangerouslySetInnerHTML={{ __html: toHtml(a.text) }} />
+                <span className="affirm-count" aria-label={`Read ${n} times today`}>
+                  {target ? `${n}/${target}` : `${n}×`}
+                  {done && ' ✓'}
+                </span>
+              </button>
+            );
+          })}
+          <div className="affirm-hint">Read aloud, then tap. Count starts fresh every morning.</div>
         </section>
       )}
 

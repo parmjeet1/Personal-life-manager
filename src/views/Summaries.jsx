@@ -25,6 +25,7 @@ import {
 } from '../modules/logic';
 import { promptOfTheDay } from '../modules/prompts';
 import { toText } from '../components/RichEditor';
+import { readToday } from '../modules/config';
 import { cls } from '../utils';
 
 const Stat = ({ label, value, tone }) => (
@@ -289,10 +290,13 @@ function Trend({ data }) {
 }
 
 function Affirmations({ records }) {
-  const active = records.filter((r) => r.active).length;
+  const activeList = records.filter((r) => r.active);
+  const active = activeList.length;
+  const doneToday = activeList.filter((a) => readToday(a) >= (Number(a.target) || 1)).length;
   return (
     <div className="stats">
       <Stat label="Active (keep 3–5)" value={active} tone={active > 5 ? 'bad' : active < 3 ? 'warn' : 'good'} />
+      <Stat label="Done today" value={`${doneToday}/${active}`} tone={active && doneToday === active ? 'good' : 'warn'} />
       <Stat label="Review" value="Monthly" />
     </div>
   );
